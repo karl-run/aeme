@@ -283,6 +283,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@cloudflare/workers-types@npm:^5.20260921.1":
+  version: 5.20260921.1
+  resolution: "@cloudflare/workers-types@npm:5.20260921.1"
+  checksum: 10c0/abd672741700cf881ef3e0223baba08fb30e704c3d0245e5bfa99127a6436cc92e6b0c0198c30aa62e4969052bff52bae0bea20c751e79141e27af927d88337c
+  languageName: node
+  linkType: hard
+
 "@cspotcode/source-map-support@npm:0.8.1":
   version: 0.8.1
   resolution: "@cspotcode/source-map-support@npm:0.8.1"
@@ -851,13 +858,6 @@ __metadata:
   version: 0.28.2
   resolution: "@esbuild/win32-x64@npm:0.28.2"
   conditions: os=win32 & cpu=x64
-  languageName: node
-  linkType: hard
-
-"@eslint/js@npm:9.39.5":
-  version: 9.39.5
-  resolution: "@eslint/js@npm:9.39.5"
-  checksum: 10c0/49894e98ba313a7d3bfb1b20d55c0f9826be45a7db876fd84e533ac7f101b1d95b51cd22c6a6db3a45066b9c0d068c31b4a22fa0db8a6cc8744a25540efdb824
   languageName: node
   linkType: hard
 
@@ -1802,7 +1802,7 @@ __metadata:
   resolution: "aeme@workspace:."
   dependencies:
     "@cloudflare/vite-plugin": "npm:1.57.1"
-    "@eslint/js": "npm:9.39.5"
+    "@cloudflare/workers-types": "npm:^5.20260921.1"
     "@hono/zod-validator": "npm:^0.9.1"
     "@libsql/client": "npm:^0.18.0"
     "@tanstack/react-query": "npm:^5.103.2"

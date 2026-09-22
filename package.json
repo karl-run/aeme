@@ -8,7 +8,6 @@
     "check": "tsc && vite build && wrangler deploy --dry-run",
     "deploy": "wrangler deploy",
     "dev": "vite",
-    "lint": "eslint .",
     "preview": "npm run build && vite preview",
     "fmt": "oxfmt",
     "fmt:check": "oxfmt --check",
@@ -28,7 +27,7 @@
   },
   "devDependencies": {
     "@cloudflare/vite-plugin": "1.57.1",
-    "@eslint/js": "9.39.5",
+    "@cloudflare/workers-types": "^5.20260921.1",
     "@types/node": "^24.13.6",
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
