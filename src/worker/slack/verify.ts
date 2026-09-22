@@ -33,15 +33,22 @@ function timingSafeEqual(a: string, b: string) {
 
 // See: https://api.slack.com/authentication/verifying-requests-from-slack.
 export async function verifySlackRequest(c: Context<{ Bindings: Env }>, next: Next) {
+  if (!c.env.SLACK_SIGNING_SECRET) {
+    console.error("SLACK_SIGNING_SECRET is not configured");
+    return c.text("server misconfigured", 500);
+  }
+
   const timestamp = c.req.header("x-slack-request-timestamp");
   const signature = c.req.header("x-slack-signature");
 
   if (!timestamp || !signature) {
+    console.error("missing slack signature headers");
     return c.text("missing slack signature headers", 400);
   }
 
   const age = Math.abs(Date.now() / 1000 - Number(timestamp));
   if (!Number.isFinite(age) || age > TIMESTAMP_TOLERANCE_SECONDS) {
+    console.error("stale slack request");
     return c.text("stale slack request", 400);
   }
 
@@ -49,6 +56,7 @@ export async function verifySlackRequest(c: Context<{ Bindings: Env }>, next: Ne
   const expected = await computeSignature(c.env.SLACK_SIGNING_SECRET, timestamp, body);
 
   if (!timingSafeEqual(expected, signature)) {
+    console.error("invalid slack signature");
     return c.text("invalid slack signature", 401);
   }
 
