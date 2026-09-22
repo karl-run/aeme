@@ -1,59 +1,67 @@
-// src/App.tsx
+import { useQuery, useMutation, QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { hc, InferResponseType, InferRequestType } from "hono/client";
 
-import { useState } from "react";
-import reactLogo from "./assets/react.svg";
-import viteLogo from "/vite.svg";
-import cloudflareLogo from "./assets/Cloudflare_Logo.svg";
-import honoLogo from "./assets/hono.svg";
-import "./App.css";
+import type { AppType } from "../worker";
 
-function App() {
-  const [count, setCount] = useState(0);
-  const [name, setName] = useState("unknown");
+const queryClient = new QueryClient();
+const client = hc<AppType>("/api");
 
+export default function App() {
   return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-        <a href="https://hono.dev/" target="_blank">
-          <img src={honoLogo} className="logo cloudflare" alt="Hono logo" />
-        </a>
-        <a href="https://workers.cloudflare.com/" target="_blank">
-          <img src={cloudflareLogo} className="logo cloudflare" alt="Cloudflare logo" />
-        </a>
-      </div>
-      <h1>Vite + React + Hono + Cloudflare</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)} aria-label="increment">
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.tsx</code> and save to test HMR
-        </p>
-      </div>
-      <div className="card">
-        <button
-          onClick={() => {
-            fetch("/api/")
-              .then((res) => res.json() as Promise<{ name: string }>)
-              .then((data) => setName(data.name));
-          }}
-          aria-label="get name"
-        >
-          Name from API is: {name}
-        </button>
-        <p>
-          Edit <code>worker/index.ts</code> to change the name
-        </p>
-      </div>
-      <p className="read-the-docs">Click on the logos to learn more</p>
-    </>
+    <QueryClientProvider client={queryClient}>
+      <Todos />
+    </QueryClientProvider>
   );
 }
 
-export default App;
+const Todos = () => {
+  const query = useQuery({
+    queryKey: ["todos"],
+    queryFn: async () => {
+      const res = await client.todo.$get();
+      return await res.json();
+    },
+  });
+
+  const $post = client.todo.$post;
+
+  const mutation = useMutation<
+    InferResponseType<typeof $post>,
+    Error,
+    InferRequestType<typeof $post>["form"]
+  >({
+    mutationFn: async (todo) => {
+      const res = await $post({
+        form: todo,
+      });
+      return await res.json();
+    },
+    onSuccess: async () => {
+      queryClient.invalidateQueries({ queryKey: ["todos"] });
+    },
+    onError: (error) => {
+      console.log(error);
+    },
+  });
+
+  return (
+    <div>
+      <button
+        onClick={() => {
+          mutation.mutate({
+            id: Date.now().toString(),
+            title: "Write code",
+          });
+        }}
+      >
+        Add Todo
+      </button>
+
+      <ul>
+        {query.data?.todos.map((todo) => (
+          <li key={todo.id}>{todo.title}</li>
+        ))}
+      </ul>
+    </div>
+  );
+};

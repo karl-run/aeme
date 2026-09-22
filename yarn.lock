@@ -672,6 +672,16 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@hono/zod-validator@npm:^0.9.1":
+  version: 0.9.1
+  resolution: "@hono/zod-validator@npm:0.9.1"
+  peerDependencies:
+    hono: ">=4.11.2"
+    zod: ^3.25.0 || ^4.0.0
+  checksum: 10c0/34fb97baf400046a250d6cf746449d5e1d9cbcda0f31d3be08a5d0f121875cf3f951a73a809aa7875b3bbe82d4a945a730cb49edb44cb33fd990d49a513e8589
+  languageName: node
+  linkType: hard
+
 "@img/colour@npm:^1.1.0":
   version: 1.1.0
   resolution: "@img/colour@npm:1.1.0"
@@ -1343,6 +1353,24 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@tanstack/query-core@npm:5.103.2":
+  version: 5.103.2
+  resolution: "@tanstack/query-core@npm:5.103.2"
+  checksum: 10c0/52362dd214a487b2194728a79c7fd1bd7af1831f21928030866a8ad28877eaec050e7215a6f3b3a0c4fdf601644ae8edb652e4cef7270f6f82d7371d2bbe9f41
+  languageName: node
+  linkType: hard
+
+"@tanstack/react-query@npm:^5.103.2":
+  version: 5.103.2
+  resolution: "@tanstack/react-query@npm:5.103.2"
+  dependencies:
+    "@tanstack/query-core": "npm:5.103.2"
+  peerDependencies:
+    react: ^18 || ^19
+  checksum: 10c0/7845c13af6761c00141ef6025c4ee385bff8f16e053f8583ba1b95db47a2c1df9764a751080981226658f45487881933517d24813f47c98238b8dbdd6acee80a
+  languageName: node
+  linkType: hard
+
 "@types/babel__core@npm:^7.20.5":
   version: 7.20.5
   resolution: "@types/babel__core@npm:7.20.5"
@@ -1447,6 +1475,8 @@ __metadata:
   dependencies:
     "@cloudflare/vite-plugin": "npm:1.57.1"
     "@eslint/js": "npm:9.39.5"
+    "@hono/zod-validator": "npm:^0.9.1"
+    "@tanstack/react-query": "npm:^5.103.2"
     "@types/node": "npm:^24.13.6"
     "@types/react": "npm:19.3.0"
     "@types/react-dom": "npm:19.3.0"
@@ -1459,6 +1489,7 @@ __metadata:
     typescript: "npm:5.9.3"
     vite: "npm:^7.3.6"
     wrangler: "npm:^4.136.1"
+    zod: "npm:^4.6.5"
   languageName: unknown
   linkType: soft
 
@@ -2592,5 +2623,12 @@ __metadata:
     cookie: "npm:^1.0.2"
     youch-core: "npm:^0.3.3"
   checksum: 10c0/588d65aa5837a46c8473cf57a9129115383f57aad5899915d37005950decfefc66bec85b8a1262dbefd623a122c279095074655889317311a554f9c2e290a5b3
+  languageName: node
+  linkType: hard
+
+"zod@npm:^4.6.5":
+  version: 4.6.5
+  resolution: "zod@npm:4.6.5"
+  checksum: 10c0/32eb6c5e98becbe045675b2141c3611451c16ba567f9779231d79af41c4d651ca1c22f154aef7e6c6e77b929f23e43f1154ca05b82e119e922353725d6776af5
   languageName: node
   linkType: hard
