@@ -2,7 +2,7 @@ import { useQuery, useMutation, QueryClient, QueryClientProvider } from "@tansta
 import { hc, InferResponseType, InferRequestType } from "hono/client";
 import { useState } from "react";
 
-import type { AppType } from "../worker";
+import type { AppType } from "../worker/rpc/types";
 
 const queryClient = new QueryClient();
 const client = hc<AppType>("/api");
@@ -79,7 +79,7 @@ const Channels = () => {
       <ul>
         {query.data?.channels.map((channel) => (
           <li key={channel.id}>
-            {channel.name} ({channel.suid})
+            {channel.name} ({channel.slackId})
             <button onClick={() => deleteMutation.mutate(channel.id)}>Delete</button>
           </li>
         ))}
