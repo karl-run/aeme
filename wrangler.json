@@ -17,7 +17,7 @@
   "assets": {
     "directory": "./dist/client",
     "not_found_handling": "single-page-application",
-    "run_worker_first": ["/slack/*"]
+    "run_worker_first": ["/slack/*", "/api/*"]
   },
   "routes": [
     {
