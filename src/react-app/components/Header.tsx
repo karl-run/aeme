@@ -21,7 +21,7 @@ export const Header = () => {
         æme
       </Link>
       <span className="text-sm text-zinc-400">
-        {session ? `Logged in as ${session.userId} · #${session.channelName}` : "Not logged in"}
+        {session ? `Logged in as ${session.userName} · #${session.channelName}` : "Not logged in"}
       </span>
     </header>
   );

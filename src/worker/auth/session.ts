@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 
 import { createDb } from "../db/db.ts";
-import { channelsTable, sessionsTable } from "../db/schema.ts";
+import { channelsTable, sessionsTable, usersTable } from "../db/schema.ts";
 
 export const SESSION_COOKIE_NAME = "session_id";
 const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
@@ -25,6 +25,7 @@ export async function createSession(env: Env, params: { userId: string; channelI
 
 export type SessionMeta = {
   userId: string;
+  userName: string;
   channelId: string;
   channelName: string;
   expires: string;
@@ -36,12 +37,14 @@ export async function getSessionMeta(env: Env, sessionId: string): Promise<Sessi
   const [session] = await db
     .select({
       userId: sessionsTable.userId,
+      userName: usersTable.name,
       channelId: sessionsTable.channelId,
       channelName: channelsTable.name,
       expires: sessionsTable.expires,
     })
     .from(sessionsTable)
     .innerJoin(channelsTable, eq(sessionsTable.channelId, channelsTable.channelId))
+    .innerJoin(usersTable, eq(sessionsTable.userId, usersTable.userId))
     .where(eq(sessionsTable.id, sessionId));
 
   if (!session) return null;

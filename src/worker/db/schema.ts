@@ -7,6 +7,12 @@ export const channelsTable = sqliteTable("channels", {
   created: text().notNull().unique(),
 });
 
+export const usersTable = sqliteTable("users", {
+  userId: text("user_id").primaryKey(),
+  name: text().notNull(),
+  created: text().notNull().unique(),
+});
+
 export const otpLoginsTable = sqliteTable(
   "otp_logins",
   {
