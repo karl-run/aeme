@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm";
 import { Hono } from "hono";
 import * as z from "zod";
 
+import { BASE_URL } from "../constants.ts";
 import { createDb } from "../db/db.ts";
 import { channelsTable, otpLoginsTable } from "../db/schema.ts";
 
@@ -62,11 +63,7 @@ export const apiRouter = new Hono<{ Bindings: Env }>()
     const response = await fetch(otpLogin.responseUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      // delete_original is unreliable for slash-command response_urls (produces
-      // a persistent "no_text" error). replace_original is the documented,
-      // reliable way to update a slash command's deferred response.
-      // https://docs.slack.dev/interactivity/handling-user-interaction#updating_message_response
-      body: JSON.stringify({ replace_original: "true", text: "✅ Logged in." }),
+      body: JSON.stringify({ replace_original: "true", text: `✅ Logged in — ${BASE_URL}` }),
     });
     const responseBody = await response.text();
 

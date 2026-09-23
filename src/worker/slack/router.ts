@@ -2,10 +2,9 @@ import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 
 import { initiateLogin } from "../auth/otp.ts";
+import { LOGIN_URL } from "../constants.ts";
 import { slashCommandSchema } from "./schema.ts";
 import { verifySlackRequest } from "./verify.ts";
-
-const LOGIN_URL = "https://æme.karl.run/login";
 
 const app = new Hono<{ Bindings: Env }>().post(
   "/aeme",
