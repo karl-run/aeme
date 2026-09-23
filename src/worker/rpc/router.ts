@@ -43,17 +43,35 @@ export const apiRouter = new Hono<{ Bindings: Env }>()
     const { otp } = c.req.valid("form");
     const db = createDb(c.env);
 
+    console.log(`login attempt for otp ${otp}`);
+
     const [otpLogin] = await db.select().from(otpLoginsTable).where(eq(otpLoginsTable.otp, otp));
 
-    if (!otpLogin || otpLogin.expires < new Date().toISOString()) {
+    if (!otpLogin) {
+      console.error(`no otp_logins row for otp ${otp}`);
       return c.json({ success: false }, 400);
     }
 
-    await fetch(otpLogin.responseUrl, {
+    if (otpLogin.expires < new Date().toISOString()) {
+      console.error(`otp ${otp} expired at ${otpLogin.expires}`);
+      return c.json({ success: false }, 400);
+    }
+
+    console.log(`deleting ephemeral message via response_url ${otpLogin.responseUrl}`);
+
+    const response = await fetch(otpLogin.responseUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ delete_original: true }),
     });
+    const responseBody = await response.text();
+
+    console.log(`slack response_url replied ${response.status}: ${responseBody}`);
+
+    if (!response.ok) {
+      console.error(`failed to delete ephemeral message for otp ${otp}`);
+      return c.json({ success: false }, 502);
+    }
 
     return c.json({ success: true });
   });
