@@ -17,7 +17,10 @@ export const otpLoginsTable = sqliteTable(
     expires: text().notNull().unique(),
   },
   (t) => [
-    check("otp_alphanumeric_length_6", sql`length(${t.otp}) = 6 AND ${t.otp} NOT GLOB '*[^A-Za-z0-9]*'`),
+    check(
+      "otp_alphanumeric_length_6",
+      sql`length(${t.otp}) = 6 AND ${t.otp} NOT GLOB '*[^A-Za-z0-9]*'`,
+    ),
   ],
 );
 
