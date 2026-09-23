@@ -17,6 +17,7 @@ const app = new Hono<{ Bindings: Env }>().post(
       const otpLogin = await initiateLogin(c.env, {
         userId: command.user_id,
         channelId: command.channel_id,
+        channelName: command.channel_name,
         responseUrl: command.response_url,
       });
 

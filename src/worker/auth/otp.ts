@@ -1,5 +1,6 @@
 import { eq } from "drizzle-orm";
 
+import { ensureChannel } from "../channels/channel.ts";
 import { BASE_URL } from "../constants.ts";
 import { createDb } from "../db/db.ts";
 import { otpLoginsTable } from "../db/schema.ts";
@@ -15,8 +16,10 @@ const generateOtp = (length = 6): string => {
 
 export const initiateLogin = async (
   env: Env,
-  params: { userId: string; channelId: string; responseUrl: string },
+  params: { userId: string; channelId: string; channelName: string; responseUrl: string },
 ) => {
+  await ensureChannel(env, { channelId: params.channelId, name: params.channelName });
+
   const db = createDb(env);
 
   const [otpLogin] = await db
