@@ -1,18 +1,21 @@
+import { eq } from "drizzle-orm";
+
+import { BASE_URL } from "../constants.ts";
 import { createDb } from "../db/db.ts";
 import { otpLoginsTable } from "../db/schema.ts";
 
 const OTP_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
 const OTP_TTL_MS = 5 * 60 * 1000;
 
-function generateOtp(length = 6): string {
+const generateOtp = (length = 6): string => {
   const bytes = crypto.getRandomValues(new Uint8Array(length));
   return Array.from(bytes, (byte) => OTP_ALPHABET[byte % OTP_ALPHABET.length]).join("");
-}
+};
 
-export async function initiateLogin(
+export const initiateLogin = async (
   env: Env,
   params: { userId: string; channelId: string; responseUrl: string },
-) {
+) => {
   const db = createDb(env);
 
   const [otpLogin] = await db
@@ -28,4 +31,46 @@ export async function initiateLogin(
     .returning();
 
   return otpLogin;
-}
+};
+
+export type CompleteLoginResult =
+  | { status: "invalid" }
+  | { status: "expired" }
+  | { status: "notify_failed" }
+  | { status: "success" };
+
+export const completeLogin = async (env: Env, otp: string): Promise<CompleteLoginResult> => {
+  const db = createDb(env);
+
+  console.log(`login attempt for otp ${otp}`);
+
+  const [otpLogin] = await db.select().from(otpLoginsTable).where(eq(otpLoginsTable.otp, otp));
+
+  if (!otpLogin) {
+    console.error(`no otp_logins row for otp ${otp}`);
+    return { status: "invalid" };
+  }
+
+  if (otpLogin.expires < new Date().toISOString()) {
+    console.error(`otp ${otp} expired at ${otpLogin.expires}`);
+    return { status: "expired" };
+  }
+
+  console.log(`replacing ephemeral message via response_url ${otpLogin.responseUrl}`);
+
+  const response = await fetch(otpLogin.responseUrl, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ replace_original: "true", text: `✅ Logged in — ${BASE_URL}` }),
+  });
+  const responseBody = await response.text();
+
+  console.log(`slack response_url replied ${response.status}: ${responseBody}`);
+
+  if (!response.ok) {
+    console.error(`failed to replace ephemeral message for otp ${otp}`);
+    return { status: "notify_failed" };
+  }
+
+  return { status: "success" };
+};

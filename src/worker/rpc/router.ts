@@ -3,9 +3,9 @@ import { eq } from "drizzle-orm";
 import { Hono } from "hono";
 import * as z from "zod";
 
-import { BASE_URL } from "../constants.ts";
+import { completeLogin } from "../auth/otp.ts";
 import { createDb } from "../db/db.ts";
-import { channelsTable, otpLoginsTable } from "../db/schema.ts";
+import { channelsTable } from "../db/schema.ts";
 
 const insertChannelSchema = z.object({
   name: z.string().min(1),
@@ -42,37 +42,15 @@ export const apiRouter = new Hono<{ Bindings: Env }>()
   })
   .post("/login", zValidator("form", loginSchema), async (c) => {
     const { otp } = c.req.valid("form");
-    const db = createDb(c.env);
+    const result = await completeLogin(c.env, otp);
 
-    console.log(`login attempt for otp ${otp}`);
-
-    const [otpLogin] = await db.select().from(otpLoginsTable).where(eq(otpLoginsTable.otp, otp));
-
-    if (!otpLogin) {
-      console.error(`no otp_logins row for otp ${otp}`);
-      return c.json({ success: false }, 400);
+    switch (result.status) {
+      case "invalid":
+      case "expired":
+        return c.json({ success: false }, 400);
+      case "notify_failed":
+        return c.json({ success: false }, 502);
+      case "success":
+        return c.json({ success: true });
     }
-
-    if (otpLogin.expires < new Date().toISOString()) {
-      console.error(`otp ${otp} expired at ${otpLogin.expires}`);
-      return c.json({ success: false }, 400);
-    }
-
-    console.log(`replacing ephemeral message via response_url ${otpLogin.responseUrl}`);
-
-    const response = await fetch(otpLogin.responseUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ replace_original: "true", text: `✅ Logged in — ${BASE_URL}` }),
-    });
-    const responseBody = await response.text();
-
-    console.log(`slack response_url replied ${response.status}: ${responseBody}`);
-
-    if (!response.ok) {
-      console.error(`failed to replace ephemeral message for otp ${otp}`);
-      return c.json({ success: false }, 502);
-    }
-
-    return c.json({ success: true });
   });
