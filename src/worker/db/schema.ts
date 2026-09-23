@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { check, int, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { check, sqliteTable, text } from "drizzle-orm/sqlite-core";
 
 export const channelsTable = sqliteTable("channels", {
   channelId: text("channel_id").primaryKey(),
@@ -26,13 +26,9 @@ export const otpLoginsTable = sqliteTable(
 );
 
 export const sessionsTable = sqliteTable("sessions", {
-  id: int().primaryKey({ autoIncrement: true }),
+  id: text().primaryKey(),
   userId: text("user_id").notNull(),
-  channelId: text("channel_id")
-    .notNull()
-    .references(() => channelsTable.channelId),
-  otp: text().notNull().unique(),
-  status: text().notNull().default("pending"),
+  channelId: text("channel_id").notNull(),
   created: text().notNull().unique(),
   expires: text().notNull().unique(),
 });

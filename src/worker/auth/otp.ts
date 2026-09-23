@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm";
 import { BASE_URL } from "../constants.ts";
 import { createDb } from "../db/db.ts";
 import { otpLoginsTable } from "../db/schema.ts";
+import { createSession } from "./session.ts";
 
 const OTP_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
 const OTP_TTL_MS = 5 * 60 * 1000;
@@ -37,7 +38,7 @@ export type CompleteLoginResult =
   | { status: "invalid" }
   | { status: "expired" }
   | { status: "notify_failed" }
-  | { status: "success" };
+  | { status: "success"; session: { id: string; expires: string } };
 
 export const completeLogin = async (env: Env, otp: string): Promise<CompleteLoginResult> => {
   const db = createDb(env);
@@ -72,5 +73,10 @@ export const completeLogin = async (env: Env, otp: string): Promise<CompleteLogi
     return { status: "notify_failed" };
   }
 
-  return { status: "success" };
+  const session = await createSession(env, {
+    userId: otpLogin.userId,
+    channelId: otpLogin.channelId,
+  });
+
+  return { status: "success", session };
 };

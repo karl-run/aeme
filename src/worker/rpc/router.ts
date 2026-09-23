@@ -1,9 +1,11 @@
 import { zValidator } from "@hono/zod-validator";
 import { eq } from "drizzle-orm";
 import { Hono } from "hono";
+import { setCookie } from "hono/cookie";
 import * as z from "zod";
 
 import { completeLogin } from "../auth/otp.ts";
+import { SESSION_COOKIE_NAME } from "../auth/session.ts";
 import { createDb } from "../db/db.ts";
 import { channelsTable } from "../db/schema.ts";
 
@@ -51,6 +53,13 @@ export const apiRouter = new Hono<{ Bindings: Env }>()
       case "notify_failed":
         return c.json({ success: false }, 502);
       case "success":
+        setCookie(c, SESSION_COOKIE_NAME, result.session.id, {
+          httpOnly: true,
+          secure: true,
+          sameSite: "Lax",
+          path: "/",
+          expires: new Date(result.session.expires),
+        });
         return c.json({ success: true });
     }
   });
