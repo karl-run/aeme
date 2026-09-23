@@ -89,5 +89,7 @@ export const completeLogin = async (env: Env, otp: string): Promise<CompleteLogi
     channelId: otpLogin.channelId,
   });
 
+  await db.delete(otpLoginsTable).where(eq(otpLoginsTable.otp, otp));
+
   return { status: "success", session };
 };
