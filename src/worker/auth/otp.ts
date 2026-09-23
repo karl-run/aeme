@@ -26,7 +26,11 @@ export const initiateLogin = async (
   },
 ) => {
   await ensureUser(env, { userId: params.userId, name: params.userName });
-  await ensureChannel(env, { channelId: params.channelId, name: params.channelName });
+  await ensureChannel(env, {
+    channelId: params.channelId,
+    name: params.channelName,
+    ownerIdIfNew: params.userId,
+  });
 
   const db = createDb(env);
 

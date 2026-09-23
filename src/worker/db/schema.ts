@@ -1,15 +1,18 @@
 import { sql } from "drizzle-orm";
 import { check, sqliteTable, text } from "drizzle-orm/sqlite-core";
 
-export const channelsTable = sqliteTable("channels", {
-  channelId: text("channel_id").primaryKey(),
+export const usersTable = sqliteTable("users", {
+  userId: text("user_id").primaryKey(),
   name: text().notNull(),
   created: text().notNull().unique(),
 });
 
-export const usersTable = sqliteTable("users", {
-  userId: text("user_id").primaryKey(),
+export const channelsTable = sqliteTable("channels", {
+  channelId: text("channel_id").primaryKey(),
   name: text().notNull(),
+  owner: text("owner")
+    .notNull()
+    .references(() => usersTable.userId),
   created: text().notNull().unique(),
 });
 
