@@ -36,8 +36,6 @@ export const apiRouter = new Hono<{ Bindings: Env }>()
       case "invalid":
       case "expired":
         return c.json({ success: false }, 400);
-      case "notify_failed":
-        return c.json({ success: false }, 502);
       case "success":
         setCookie(c, SESSION_COOKIE_NAME, result.session.id, {
           httpOnly: true,

@@ -52,7 +52,6 @@ export const initiateLogin = async (
 export type CompleteLoginResult =
   | { status: "invalid" }
   | { status: "expired" }
-  | { status: "notify_failed" }
   | { status: "success"; session: { id: string; expires: string } };
 
 export const completeLogin = async (env: Env, otp: string): Promise<CompleteLoginResult> => {
@@ -60,7 +59,9 @@ export const completeLogin = async (env: Env, otp: string): Promise<CompleteLogi
 
   console.log(`login attempt for otp ${otp}`);
 
-  const [otpLogin] = await db.select().from(otpLoginsTable).where(eq(otpLoginsTable.otp, otp));
+  // Atomically claim and consume the row in one statement: concurrent requests for the
+  // same otp can only ever have one of them see a row here, so it can't be redeemed twice.
+  const [otpLogin] = await db.delete(otpLoginsTable).where(eq(otpLoginsTable.otp, otp)).returning();
 
   if (!otpLogin) {
     console.error(`no otp_logins row for otp ${otp}`);
@@ -72,6 +73,11 @@ export const completeLogin = async (env: Env, otp: string): Promise<CompleteLogi
     return { status: "expired" };
   }
 
+  const session = await createSession(env, {
+    userId: otpLogin.userId,
+    channelId: otpLogin.channelId,
+  });
+
   console.log(`replacing ephemeral message via response_url ${otpLogin.responseUrl}`);
 
   const response = await fetch(otpLogin.responseUrl, {
@@ -79,21 +85,13 @@ export const completeLogin = async (env: Env, otp: string): Promise<CompleteLogi
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ replace_original: "true", text: `✅ Logged in — ${BASE_URL}` }),
   });
-  const responseBody = await response.text();
-
-  console.log(`slack response_url replied ${response.status}: ${responseBody}`);
 
   if (!response.ok) {
-    console.error(`failed to replace ephemeral message for otp ${otp}`);
-    return { status: "notify_failed" };
+    const responseBody = await response.text();
+    console.error(
+      `failed to replace ephemeral message for otp ${otp}: ${response.status} ${responseBody}`,
+    );
   }
-
-  const session = await createSession(env, {
-    userId: otpLogin.userId,
-    channelId: otpLogin.channelId,
-  });
-
-  await db.delete(otpLoginsTable).where(eq(otpLoginsTable.otp, otp));
 
   return { status: "success", session };
 };

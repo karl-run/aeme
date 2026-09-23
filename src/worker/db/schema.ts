@@ -38,6 +38,6 @@ export const sessionsTable = sqliteTable("sessions", {
   id: text().primaryKey(),
   userId: text("user_id").notNull(),
   channelId: text("channel_id").notNull(),
-  created: text().notNull().unique(),
-  expires: text().notNull().unique(),
+  created: text().notNull(),
+  expires: text().notNull(),
 });
