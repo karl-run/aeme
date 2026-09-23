@@ -1,6 +1,13 @@
 import { createDb } from "../db/db.ts";
 import { otpLoginsTable } from "../db/schema.ts";
 
+const OTP_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+
+function generateOtp(length = 6): string {
+  const bytes = crypto.getRandomValues(new Uint8Array(length));
+  return Array.from(bytes, (byte) => OTP_ALPHABET[byte % OTP_ALPHABET.length]).join("");
+}
+
 export async function initiateLogin(env: Env) {
   const db = createDb(env);
 
@@ -9,7 +16,7 @@ export async function initiateLogin(env: Env) {
     .values({
       channelId: "test",
       userId: "aaa",
-      otp: "1 2 3 4 5 6",
+      otp: generateOtp(),
       created: new Date().toISOString(),
       expires: new Date().toISOString(),
     })
