@@ -1,10 +1,10 @@
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
-import { setCookie } from "hono/cookie";
+import { getCookie, setCookie } from "hono/cookie";
 import * as z from "zod";
 
 import { completeLogin } from "../auth/otp.ts";
-import { SESSION_COOKIE_NAME } from "../auth/session.ts";
+import { getSessionMeta, SESSION_COOKIE_NAME } from "../auth/session.ts";
 
 const loginSchema = z.object({
   otp: z
@@ -13,10 +13,15 @@ const loginSchema = z.object({
     .transform((otp) => otp.toUpperCase()),
 });
 
-export const apiRouter = new Hono<{ Bindings: Env }>().post(
-  "/login",
-  zValidator("form", loginSchema),
-  async (c) => {
+export const apiRouter = new Hono<{ Bindings: Env }>()
+  .get("/session", async (c) => {
+    const sessionId = getCookie(c, SESSION_COOKIE_NAME);
+    if (!sessionId) return c.json({ session: null });
+
+    const session = await getSessionMeta(c.env, sessionId);
+    return c.json({ session });
+  })
+  .post("/login", zValidator("form", loginSchema), async (c) => {
     const { otp } = c.req.valid("form");
     const result = await completeLogin(c.env, otp);
 
@@ -36,5 +41,4 @@ export const apiRouter = new Hono<{ Bindings: Env }>().post(
         });
         return c.json({ success: true });
     }
-  },
-);
+  });
