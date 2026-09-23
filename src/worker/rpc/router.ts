@@ -57,19 +57,23 @@ export const apiRouter = new Hono<{ Bindings: Env }>()
       return c.json({ success: false }, 400);
     }
 
-    console.log(`deleting ephemeral message via response_url ${otpLogin.responseUrl}`);
+    console.log(`replacing ephemeral message via response_url ${otpLogin.responseUrl}`);
 
     const response = await fetch(otpLogin.responseUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ delete_original: true }),
+      // delete_original is unreliable for slash-command response_urls (produces
+      // a persistent "no_text" error). replace_original is the documented,
+      // reliable way to update a slash command's deferred response.
+      // https://docs.slack.dev/interactivity/handling-user-interaction#updating_message_response
+      body: JSON.stringify({ replace_original: "true", text: "✅ Logged in." }),
     });
     const responseBody = await response.text();
 
     console.log(`slack response_url replied ${response.status}: ${responseBody}`);
 
     if (!response.ok) {
-      console.error(`failed to delete ephemeral message for otp ${otp}`);
+      console.error(`failed to replace ephemeral message for otp ${otp}`);
       return c.json({ success: false }, 502);
     }
 
