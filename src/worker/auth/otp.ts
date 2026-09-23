@@ -1,7 +1,7 @@
 import { createDb } from "../db/db.ts";
 import { otpLoginsTable } from "../db/schema.ts";
 
-const OTP_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+const OTP_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
 const OTP_TTL_MS = 5 * 60 * 1000;
 
 function generateOtp(length = 6): string {
