@@ -1,7 +1,6 @@
-import { useMutation } from "@tanstack/react-query";
 import { type ChangeEvent, type SubmitEvent, type SyntheticEvent, useRef, useState } from "react";
 
-import { client } from "../api.ts";
+import { useLoginMutation } from "../queries/session.ts";
 
 const OTP_LENGTH = 6;
 
@@ -20,13 +19,7 @@ export const LoginForm = () => {
   const [caret, setCaret] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const login = useMutation({
-    mutationFn: async (otp: string) => {
-      const res = await client.login.$post({ form: { otp } });
-      if (!res.ok) throw new Error("Invalid or expired code.");
-      return res.json();
-    },
-  });
+  const login = useLoginMutation();
 
   const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
     const next = sanitizeOtp(e.target.value);

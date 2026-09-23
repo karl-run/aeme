@@ -1,10 +1,10 @@
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
-import { getCookie, setCookie } from "hono/cookie";
+import { deleteCookie, getCookie, setCookie } from "hono/cookie";
 import * as z from "zod";
 
 import { completeLogin } from "../auth/otp.ts";
-import { getSessionMeta, SESSION_COOKIE_NAME } from "../auth/session.ts";
+import { deleteSession, getSessionMeta, SESSION_COOKIE_NAME } from "../auth/session.ts";
 
 const loginSchema = z.object({
   otp: z
@@ -20,6 +20,13 @@ export const apiRouter = new Hono<{ Bindings: Env }>()
 
     const session = await getSessionMeta(c.env, sessionId);
     return c.json({ session });
+  })
+  .delete("/session", async (c) => {
+    const sessionId = getCookie(c, SESSION_COOKIE_NAME);
+    if (sessionId) await deleteSession(c.env, sessionId);
+
+    deleteCookie(c, SESSION_COOKIE_NAME);
+    return c.json({ success: true });
   })
   .post("/login", zValidator("form", loginSchema), async (c) => {
     const { otp } = c.req.valid("form");

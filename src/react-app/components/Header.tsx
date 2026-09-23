@@ -1,17 +1,10 @@
-import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 
-import { client } from "../api.ts";
+import { useLogoutMutation, useSessionQuery } from "../queries/session.ts";
 
 export const Header = () => {
-  const { data } = useQuery({
-    queryKey: ["session"],
-    queryFn: async () => {
-      const res = await client.session.$get();
-      if (!res.ok) throw new Error("Failed to load session.");
-      return res.json();
-    },
-  });
+  const { data } = useSessionQuery();
+  const logout = useLogoutMutation();
 
   const session = data?.session;
 
@@ -20,9 +13,21 @@ export const Header = () => {
       <Link to="/" className="font-semibold">
         æme
       </Link>
-      <span className="text-sm text-zinc-400">
-        {session ? `Logged in as ${session.userName} · #${session.channelName}` : "Not logged in"}
-      </span>
+      <div className="flex items-center gap-3 text-sm text-zinc-400">
+        <span>
+          {session ? `Logged in as ${session.userName} · #${session.channelName}` : "Not logged in"}
+        </span>
+        {session && (
+          <button
+            type="button"
+            onClick={() => logout.mutate()}
+            disabled={logout.isPending}
+            className="underline disabled:opacity-50"
+          >
+            Log out
+          </button>
+        )}
+      </div>
     </header>
   );
 };

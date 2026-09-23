@@ -52,3 +52,8 @@ export async function getSessionMeta(env: Env, sessionId: string): Promise<Sessi
 
   return session;
 }
+
+export async function deleteSession(env: Env, sessionId: string): Promise<void> {
+  const db = createDb(env);
+  await db.delete(sessionsTable).where(eq(sessionsTable.id, sessionId));
+}
