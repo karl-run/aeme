@@ -30,6 +30,7 @@
   "devDependencies": {
     "@cloudflare/vite-plugin": "1.57.1",
     "@cloudflare/workers-types": "^5.20260921.1",
+    "@tailwindcss/vite": "^4.3.3",
     "@tanstack/router-plugin": "^1.168.40",
     "@types/node": "^24.13.6",
     "@types/react": "19.3.0",
@@ -39,6 +40,7 @@
     "drizzle-kit": "1.0.0-rc.4",
     "globals": "16.5.0",
     "oxfmt": "^0.70.0",
+    "tailwindcss": "^4.3.3",
     "tsx": "^4.23.15",
     "typescript": "5.9.3",
     "vite": "^7.3.6",
