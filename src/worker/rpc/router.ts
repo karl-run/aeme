@@ -1,5 +1,4 @@
 import { zValidator } from "@hono/zod-validator";
-import { IncomingWebhook } from "@slack/webhook";
 import { eq } from "drizzle-orm";
 import { Hono } from "hono";
 import * as z from "zod";
@@ -50,12 +49,11 @@ export const apiRouter = new Hono<{ Bindings: Env }>()
       return c.json({ success: false }, 400);
     }
 
-    const webhook = new IncomingWebhook(otpLogin.responseUrl, {
-      // Workers' fetch only supports redirect: "follow" | "manual", but @slack/webhook
-      // hardcodes "error" — override it here so the request doesn't throw.
-      fetch: (input, init) => fetch(input, { ...init, redirect: "manual" }),
+    await fetch(otpLogin.responseUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ delete_original: true }),
     });
-    await webhook.send({ delete_original: true });
 
     return c.json({ success: true });
   });
