@@ -12,8 +12,12 @@ const app = new Hono<{ Bindings: Env }>().post(
   async (c) => {
     const command = c.req.valid("form");
 
-    // Debug
-    await initiateLogin(c.env);
+    if (command.text === "") {
+      await initiateLogin(c.env, {
+        userId: command.user_id,
+        channelId: command.channel_id,
+      });
+    }
 
     return c.json({ response_type: "ephemeral", text: `received: ${command.text}` });
   },

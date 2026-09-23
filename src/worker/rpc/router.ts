@@ -22,13 +22,13 @@ export const apiRouter = new Hono<{ Bindings: Env }>()
     const db = createDb(c.env);
     const [channel] = await db
       .insert(channelsTable)
-      .values({ name, slackId: Number(suid), created: new Date().toISOString() })
+      .values({ name, channelId: suid, created: new Date().toISOString() })
       .returning();
     return c.json({ channel });
   })
   .delete("/channel/:id", async (c) => {
-    const id = Number(c.req.param("id"));
+    const id = c.req.param("id");
     const db = createDb(c.env);
-    await db.delete(channelsTable).where(eq(channelsTable.id, id));
+    await db.delete(channelsTable).where(eq(channelsTable.channelId, id));
     return c.json({ message: "deleted" });
   });
