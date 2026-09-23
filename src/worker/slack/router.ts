@@ -5,6 +5,8 @@ import { initiateLogin } from "../auth/otp.ts";
 import { slashCommandSchema } from "./schema.ts";
 import { verifySlackRequest } from "./verify.ts";
 
+const LOGIN_URL = "https://æme.karl.run/login";
+
 const app = new Hono<{ Bindings: Env }>().post(
   "/aeme",
   verifySlackRequest,
@@ -13,10 +15,15 @@ const app = new Hono<{ Bindings: Env }>().post(
     const command = c.req.valid("form");
 
     if (command.text === "") {
-      await initiateLogin(c.env, {
+      const otpLogin = await initiateLogin(c.env, {
         userId: command.user_id,
         channelId: command.channel_id,
         responseUrl: command.response_url,
+      });
+
+      return c.json({
+        response_type: "ephemeral",
+        text: `Log in at ${LOGIN_URL} with the code: ${otpLogin.otp}`,
       });
     }
 
