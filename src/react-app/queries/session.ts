@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useNavigate } from "@tanstack/react-router";
 
 import { client } from "../api.ts";
 
@@ -18,6 +19,7 @@ export const useSessionQuery = () =>
 
 export const useLoginMutation = () => {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
 
   return useMutation({
     mutationFn: async (otp: string) => {
@@ -27,6 +29,7 @@ export const useLoginMutation = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: sessionQueryKey });
+      navigate({ to: "/" });
     },
   });
 };
