@@ -16,6 +16,7 @@ const app = new Hono<{ Bindings: Env }>().post(
       await initiateLogin(c.env, {
         userId: command.user_id,
         channelId: command.channel_id,
+        responseUrl: command.response_url,
       });
     }
 

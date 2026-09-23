@@ -9,7 +9,10 @@ function generateOtp(length = 6): string {
   return Array.from(bytes, (byte) => OTP_ALPHABET[byte % OTP_ALPHABET.length]).join("");
 }
 
-export async function initiateLogin(env: Env, params: { userId: string; channelId: string }) {
+export async function initiateLogin(
+  env: Env,
+  params: { userId: string; channelId: string; responseUrl: string },
+) {
   const db = createDb(env);
 
   const [otpLogin] = await db
@@ -17,6 +20,7 @@ export async function initiateLogin(env: Env, params: { userId: string; channelI
     .values({
       channelId: params.channelId,
       userId: params.userId,
+      responseUrl: params.responseUrl,
       otp: generateOtp(),
       created: new Date().toISOString(),
       expires: new Date(Date.now() + OTP_TTL_MS).toISOString(),

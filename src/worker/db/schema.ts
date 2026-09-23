@@ -13,6 +13,7 @@ export const otpLoginsTable = sqliteTable(
     otp: text().notNull().unique(),
     userId: text("user_id").notNull(),
     channelId: text("channel_id").notNull(),
+    responseUrl: text("response_url").notNull(),
     created: text().notNull().unique(),
     expires: text().notNull().unique(),
   },

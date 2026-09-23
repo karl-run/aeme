@@ -1687,6 +1687,26 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@slack/types@npm:^3.1.0":
+  version: 3.1.0
+  resolution: "@slack/types@npm:3.1.0"
+  checksum: 10c0/8bdc7fcb36bf7f2a3c5c6c00c35167ded1bd304bda1657209d48c58338a041249e42332f9123705f11e0caece846b38912f2807b49b80730b172ca4f70b95757
+  languageName: node
+  linkType: hard
+
+"@slack/webhook@npm:8.0.2":
+  version: 8.0.2
+  resolution: "@slack/webhook@npm:8.0.2"
+  dependencies:
+    "@slack/types": "npm:^3.1.0"
+    "@types/node": "npm:>=20"
+    "@types/retry": "npm:0.12.5"
+    p-retry: "npm:^4.6.2"
+    retry: "npm:^0.13.1"
+  checksum: 10c0/1a47a4467ea95b1a187076bf5f1806d3622078073ecd20d5d13e3481d5e839773a3b242681695e7e129d41fffe4b375405e987c7a3a11a9b8f7a4880c3b014bf
+  languageName: node
+  linkType: hard
+
 "@speed-highlight/core@npm:^1.2.7":
   version: 1.2.24
   resolution: "@speed-highlight/core@npm:1.2.24"
@@ -2093,7 +2113,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/node@npm:*":
+"@types/node@npm:*, @types/node@npm:>=20":
   version: 26.6.2
   resolution: "@types/node@npm:26.6.2"
   dependencies:
@@ -2126,6 +2146,20 @@ __metadata:
   dependencies:
     csstype: "npm:^3.2.2"
   checksum: 10c0/fbcabf303f935ca9f36ed2dcf81751cf84744098c5a683c8a62a0fa7edd31714b48d5c46b12fd0014f7f2dfe4d9ec6de428a850748eec719a70294e51029551b
+  languageName: node
+  linkType: hard
+
+"@types/retry@npm:0.12.0":
+  version: 0.12.0
+  resolution: "@types/retry@npm:0.12.0"
+  checksum: 10c0/7c5c9086369826f569b83a4683661557cab1361bac0897a1cefa1a915ff739acd10ca0d62b01071046fe3f5a3f7f2aec80785fe283b75602dc6726781ea3e328
+  languageName: node
+  linkType: hard
+
+"@types/retry@npm:0.12.5":
+  version: 0.12.5
+  resolution: "@types/retry@npm:0.12.5"
+  checksum: 10c0/eaaca483cc62f2f02c0b8486847ee70986ca7f97afd7363037247dbe3e98df8bd56a5b50d58b1e96768a5a1be0307010d86e9991bd458d72e8df88be471bd720
   languageName: node
   linkType: hard
 
@@ -2169,6 +2203,7 @@ __metadata:
     "@cloudflare/workers-types": "npm:^5.20260921.1"
     "@hono/zod-validator": "npm:^0.9.1"
     "@libsql/client": "npm:^0.18.0"
+    "@slack/webhook": "npm:8.0.2"
     "@tailwindcss/vite": "npm:^4.3.3"
     "@tanstack/react-query": "npm:^5.103.2"
     "@tanstack/react-router": "npm:^1.170.38"
@@ -3306,6 +3341,16 @@ __metadata:
   languageName: node
   linkType: hard
 
+"p-retry@npm:^4.6.2":
+  version: 4.6.2
+  resolution: "p-retry@npm:4.6.2"
+  dependencies:
+    "@types/retry": "npm:0.12.0"
+    retry: "npm:^0.13.1"
+  checksum: 10c0/d58512f120f1590cfedb4c2e0c42cb3fa66f3cea8a4646632fcb834c56055bb7a6f138aa57b20cc236fb207c9d694e362e0b5c2b14d9b062f67e8925580c73b0
+  languageName: node
+  linkType: hard
+
 "path-to-regexp@npm:6.3.0":
   version: 6.3.0
   resolution: "path-to-regexp@npm:6.3.0"
@@ -3404,6 +3449,13 @@ __metadata:
   version: 1.0.0
   resolution: "resolve-pkg-maps@npm:1.0.0"
   checksum: 10c0/fb8f7bbe2ca281a73b7ef423a1cbc786fb244bd7a95cbe5c3fba25b27d327150beca8ba02f622baea65919a57e061eb5005204daa5f93ed590d9b77463a567ab
+  languageName: node
+  linkType: hard
+
+"retry@npm:^0.13.1":
+  version: 0.13.1
+  resolution: "retry@npm:0.13.1"
+  checksum: 10c0/9ae822ee19db2163497e074ea919780b1efa00431d197c7afdb950e42bf109196774b92a49fc9821f0b8b328a98eea6017410bfc5e8a0fc19c85c6d11adb3772
   languageName: node
   linkType: hard
 
