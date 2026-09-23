@@ -15,6 +15,11 @@ const generateOtp = (length = 6): string => {
   return Array.from(bytes, (byte) => OTP_ALPHABET[byte % OTP_ALPHABET.length]).join("");
 };
 
+const hashOtp = async (otp: string): Promise<string> => {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(otp));
+  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
+};
+
 export const initiateLogin = async (
   env: Env,
   params: {
@@ -33,6 +38,7 @@ export const initiateLogin = async (
   });
 
   const db = createDb(env);
+  const otp = generateOtp();
 
   const [otpLogin] = await db
     .insert(otpLoginsTable)
@@ -40,13 +46,13 @@ export const initiateLogin = async (
       channelId: params.channelId,
       userId: params.userId,
       responseUrl: params.responseUrl,
-      otp: generateOtp(),
+      otpHash: await hashOtp(otp),
       created: new Date().toISOString(),
       expires: new Date(Date.now() + OTP_TTL_MS).toISOString(),
     })
     .returning();
 
-  return otpLogin;
+  return { ...otpLogin, otp };
 };
 
 export type CompleteLoginResult =
@@ -59,9 +65,14 @@ export const completeLogin = async (env: Env, otp: string): Promise<CompleteLogi
 
   console.log("login attempt");
 
+  const otpHash = await hashOtp(otp);
+
   // Atomically claim and consume the row in one statement: concurrent requests for the
   // same otp can only ever have one of them see a row here, so it can't be redeemed twice.
-  const [otpLogin] = await db.delete(otpLoginsTable).where(eq(otpLoginsTable.otp, otp)).returning();
+  const [otpLogin] = await db
+    .delete(otpLoginsTable)
+    .where(eq(otpLoginsTable.otpHash, otpHash))
+    .returning();
 
   if (!otpLogin) {
     console.error("login attempt for unknown otp");

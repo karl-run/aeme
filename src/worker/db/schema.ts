@@ -19,7 +19,7 @@ export const channelsTable = sqliteTable("channels", {
 export const otpLoginsTable = sqliteTable(
   "otp_logins",
   {
-    otp: text().notNull().unique(),
+    otpHash: text("otp_hash").notNull().unique(),
     userId: text("user_id").notNull(),
     channelId: text("channel_id").notNull(),
     responseUrl: text("response_url").notNull(),
@@ -28,8 +28,8 @@ export const otpLoginsTable = sqliteTable(
   },
   (t) => [
     check(
-      "otp_alphanumeric_length_6",
-      sql`length(${t.otp}) = 6 AND ${t.otp} NOT GLOB '*[^A-Z0-9]*'`,
+      "otp_hash_sha256_hex",
+      sql`length(${t.otpHash}) = 64 AND ${t.otpHash} NOT GLOB '*[^a-f0-9]*'`,
     ),
   ],
 );
