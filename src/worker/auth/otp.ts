@@ -57,19 +57,19 @@ export type CompleteLoginResult =
 export const completeLogin = async (env: Env, otp: string): Promise<CompleteLoginResult> => {
   const db = createDb(env);
 
-  console.log(`login attempt for otp ${otp}`);
+  console.log("login attempt");
 
   // Atomically claim and consume the row in one statement: concurrent requests for the
   // same otp can only ever have one of them see a row here, so it can't be redeemed twice.
   const [otpLogin] = await db.delete(otpLoginsTable).where(eq(otpLoginsTable.otp, otp)).returning();
 
   if (!otpLogin) {
-    console.error(`no otp_logins row for otp ${otp}`);
+    console.error("login attempt for unknown otp");
     return { status: "invalid" };
   }
 
   if (otpLogin.expires < new Date().toISOString()) {
-    console.error(`otp ${otp} expired at ${otpLogin.expires}`);
+    console.error(`otp for user ${otpLogin.userId} expired at ${otpLogin.expires}`);
     return { status: "expired" };
   }
 
@@ -89,7 +89,7 @@ export const completeLogin = async (env: Env, otp: string): Promise<CompleteLogi
   if (!response.ok) {
     const responseBody = await response.text();
     console.error(
-      `failed to replace ephemeral message for otp ${otp}: ${response.status} ${responseBody}`,
+      `failed to replace ephemeral message for user ${otpLogin.userId}: ${response.status} ${responseBody}`,
     );
   }
 
