@@ -1,6 +1,7 @@
 import { Link } from "@tanstack/react-router";
 
 import { useSessionQuery } from "../queries/session.ts";
+import { AddActivityDialog } from "./AddActivityDialog.tsx";
 
 export const Home = () => {
   const { data, isPending } = useSessionQuery();
@@ -28,8 +29,9 @@ export const Home = () => {
   }
 
   return (
-    <div className="p-2">
+    <div className="p-2 flex flex-col gap-4 items-start">
       <h3>Welcome back, {session.userName}.</h3>
+      <AddActivityDialog />
     </div>
   );
 };

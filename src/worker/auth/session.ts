@@ -1,4 +1,6 @@
 import { eq } from "drizzle-orm";
+import type { Context } from "hono";
+import { setCookie } from "hono/cookie";
 
 import { createDb } from "../db/db.ts";
 import { channelsTable, sessionsTable, usersTable } from "../db/schema.ts";
@@ -21,6 +23,16 @@ export async function createSession(env: Env, params: { userId: string; channelI
     .returning();
 
   return session;
+}
+
+export function setSessionCookie(c: Context, session: { id: string; expires: string }) {
+  setCookie(c, SESSION_COOKIE_NAME, session.id, {
+    httpOnly: true,
+    secure: true,
+    sameSite: "Lax",
+    path: "/",
+    expires: new Date(session.expires),
+  });
 }
 
 export type SessionMeta = {
