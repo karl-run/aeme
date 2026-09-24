@@ -4,6 +4,7 @@ import { Hono } from "hono";
 import { initiateLogin } from "../auth/otp.ts";
 import { LOGIN_URL } from "../constants.ts";
 import { isChannelMember } from "./membership.ts";
+import { postEphemeral } from "./messages.ts";
 import { slashCommandSchema } from "./schema.ts";
 import { verifySlackRequest } from "./verify.ts";
 
@@ -27,13 +28,15 @@ const app = new Hono<{ Bindings: Env }>().post(
         userName: command.user_name,
         channelId: command.channel_id,
         channelName: command.channel_name,
-        responseUrl: command.response_url,
       });
 
-      return c.json({
-        response_type: "ephemeral",
+      await postEphemeral(c.env, {
+        channel: command.channel_id,
+        user: command.user_id,
         text: `Log in at ${LOGIN_URL} with the code: ${otpLogin.otp}`,
       });
+
+      return c.body(null, 200);
     }
 
     return c.json({ response_type: "ephemeral", text: `received: ${command.text}` });

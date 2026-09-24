@@ -22,7 +22,6 @@ export const otpLoginsTable = sqliteTable(
     otpHash: text("otp_hash").notNull().unique(),
     userId: text("user_id").notNull(),
     channelId: text("channel_id").notNull(),
-    responseUrl: text("response_url").notNull(),
     created: text().notNull().unique(),
     expires: text().notNull().unique(),
   },

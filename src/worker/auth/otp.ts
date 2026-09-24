@@ -4,6 +4,7 @@ import { ensureChannel } from "../channels/channel.ts";
 import { BASE_URL } from "../constants.ts";
 import { createDb } from "../db/db.ts";
 import { otpLoginsTable } from "../db/schema.ts";
+import { postEphemeral } from "../slack/messages.ts";
 import { ensureUser } from "../users/user.ts";
 import { createSession } from "./session.ts";
 
@@ -27,7 +28,6 @@ export const initiateLogin = async (
     userName: string;
     channelId: string;
     channelName: string;
-    responseUrl: string;
   },
 ) => {
   await ensureUser(env, { userId: params.userId, name: params.userName });
@@ -45,7 +45,6 @@ export const initiateLogin = async (
     .values({
       channelId: params.channelId,
       userId: params.userId,
-      responseUrl: params.responseUrl,
       otpHash: await hashOtp(otp),
       created: new Date().toISOString(),
       expires: new Date(Date.now() + OTP_TTL_MS).toISOString(),
@@ -89,20 +88,11 @@ export const completeLogin = async (env: Env, otp: string): Promise<CompleteLogi
     channelId: otpLogin.channelId,
   });
 
-  console.log(`replacing ephemeral message via response_url ${otpLogin.responseUrl}`);
-
-  const response = await fetch(otpLogin.responseUrl, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ replace_original: "true", text: `✅ Logged in — ${BASE_URL}` }),
+  await postEphemeral(env, {
+    channel: otpLogin.channelId,
+    user: otpLogin.userId,
+    text: `✅ Logged in — ${BASE_URL}`,
   });
-
-  if (!response.ok) {
-    const responseBody = await response.text();
-    console.error(
-      `failed to replace ephemeral message for user ${otpLogin.userId}: ${response.status} ${responseBody}`,
-    );
-  }
 
   return { status: "success", session };
 };
