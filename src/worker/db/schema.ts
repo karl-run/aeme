@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { check, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { check, integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 
 export const usersTable = sqliteTable("users", {
   userId: text("user_id").primaryKey(),
@@ -40,3 +40,45 @@ export const sessionsTable = sqliteTable("sessions", {
   created: text().notNull(),
   expires: text().notNull(),
 });
+
+export type ActivitySlot = {
+  date: string;
+  from?: string;
+  to?: string;
+};
+
+export const activitiesTable = sqliteTable(
+  "activities",
+  {
+    id: text().primaryKey(),
+    channelId: text("channel_id")
+      .notNull()
+      .references(() => channelsTable.channelId),
+    title: text().notNull(),
+    description: text().notNull(),
+    endTime: text("end_time"),
+    persistent: integer({ mode: "boolean" }).notNull().default(false),
+    archived: integer({ mode: "boolean" }).notNull().default(false),
+    created: text().notNull(),
+  },
+  (t) => [
+    check("activities_persistent_no_end_time", sql`${t.persistent} = 0 OR ${t.endTime} IS NULL`),
+  ],
+);
+
+export const activityAvailabilityTable = sqliteTable(
+  "activity_availability",
+  {
+    id: text().primaryKey(),
+    activityId: text("activity_id")
+      .notNull()
+      .references(() => activitiesTable.id),
+    userId: text("user_id")
+      .notNull()
+      .references(() => usersTable.userId),
+    slots: text({ mode: "json" }).notNull().$type<ActivitySlot[]>(),
+    created: text().notNull(),
+    updated: text().notNull(),
+  },
+  (t) => [uniqueIndex("activity_availability_activity_user").on(t.activityId, t.userId)],
+);
