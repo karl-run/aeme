@@ -29,6 +29,7 @@ export const useCreateActivityMutation = () => {
       endTime: string | null;
       persistent: boolean;
       slotGranularity: "day" | "hourly";
+      suggestedDates: string[] | null;
     }) => {
       const res = await client.activities.$post({ json: params });
       if (!res.ok) throw new Error("Failed to create activity.");

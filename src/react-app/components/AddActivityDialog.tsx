@@ -1,3 +1,4 @@
+import { XIcon } from "lucide-react";
 import { type FormEvent, useState } from "react";
 
 import { useCreateActivityMutation } from "../queries/activities.ts";
@@ -24,6 +25,7 @@ export const AddActivityDialog = () => {
   const [endTime, setEndTime] = useState("");
   const [persistent, setPersistent] = useState(false);
   const [slotGranularity, setSlotGranularity] = useState<"day" | "hourly">("day");
+  const [suggestedDates, setSuggestedDates] = useState<string[]>([]);
 
   const createActivity = useCreateActivityMutation();
 
@@ -33,10 +35,13 @@ export const AddActivityDialog = () => {
     setEndTime("");
     setPersistent(false);
     setSlotGranularity("day");
+    setSuggestedDates([]);
   };
 
   const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+
+    const cleanedSuggestedDates = [...new Set(suggestedDates.filter(Boolean))].sort();
 
     createActivity.mutate(
       {
@@ -45,6 +50,8 @@ export const AddActivityDialog = () => {
         endTime: persistent ? null : endTime || null,
         persistent,
         slotGranularity,
+        suggestedDates:
+          !persistent && cleanedSuggestedDates.length > 0 ? cleanedSuggestedDates : null,
       },
       {
         onSuccess: () => {
@@ -96,7 +103,7 @@ export const AddActivityDialog = () => {
               checked={persistent}
               onCheckedChange={setPersistent}
             />
-            <Label htmlFor="activity-persistent">Persistent (no end time)</Label>
+            <Label htmlFor="activity-persistent">Persistent (ongoing, no end time)</Label>
           </div>
 
           <div className="flex flex-col gap-1.5">
@@ -123,8 +130,49 @@ export const AddActivityDialog = () => {
             </div>
           </div>
 
+          {!persistent && (
+            <div className="flex flex-col gap-1.5">
+              <Label>Suggested dates (optional)</Label>
+              <p className="text-xs text-muted-foreground">
+                E.g. "either on the 12th, 14th or 16th". Leave empty to let people propose any date.
+              </p>
+              <div className="flex flex-col gap-2">
+                {suggestedDates.map((date, i) => (
+                  <div key={i} className="flex gap-2">
+                    <Input
+                      type="date"
+                      value={date}
+                      onChange={(e) =>
+                        setSuggestedDates((dates) =>
+                          dates.map((d, j) => (j === i ? e.target.value : d)),
+                        )
+                      }
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon-sm"
+                      aria-label="Remove date"
+                      onClick={() => setSuggestedDates((dates) => dates.filter((_, j) => j !== i))}
+                    >
+                      <XIcon />
+                    </Button>
+                  </div>
+                ))}
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setSuggestedDates((dates) => [...dates, ""])}
+                >
+                  Add a suggested date
+                </Button>
+              </div>
+            </div>
+          )}
+
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="activity-end-time">End time</Label>
+            <Label htmlFor="activity-end-time">{persistent ? "End time" : "Respond by"}</Label>
             <Input
               id="activity-end-time"
               type="datetime-local"

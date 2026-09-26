@@ -33,24 +33,34 @@ const formatDayLabel = (d: Date) =>
 
 type Props = {
   granularity: "day" | "hourly";
-  persistent: boolean;
-  endTime: string | null;
+  /** Fixed set of candidate dates proposed by the creator; when set, the grid
+   * only shows these dates instead of a scrollable rolling window. */
+  suggestedDates: string[] | null;
   value: ActivitySlot[];
   onChange: (slots: ActivitySlot[]) => void;
+  readOnly?: boolean;
 };
 
-export const AvailabilityGrid = ({ granularity, persistent, endTime, value, onChange }: Props) => {
+export const AvailabilityGrid = ({
+  granularity,
+  suggestedDates,
+  value,
+  onChange,
+  readOnly = false,
+}: Props) => {
   const today = startOfDay(new Date());
-  const maxDate = !persistent && endTime ? startOfDay(new Date(endTime)) : null;
+
+  const fixedDays =
+    suggestedDates && suggestedDates.length > 0
+      ? [...suggestedDates].sort().map((d) => new Date(`${d}T00:00:00`))
+      : null;
 
   const [windowStart, setWindowStart] = useState(today);
 
-  const days = Array.from({ length: WINDOW_DAYS }, (_, i) => addDays(windowStart, i)).filter(
-    (d) => !maxDate || d <= maxDate,
-  );
+  const days = fixedDays ?? Array.from({ length: WINDOW_DAYS }, (_, i) => addDays(windowStart, i));
 
-  const canGoPrev = windowStart > today;
-  const canGoNext = !maxDate || addDays(windowStart, WINDOW_DAYS) <= maxDate;
+  const canGoPrev = !fixedDays && windowStart > today;
+  const canGoNext = !fixedDays;
 
   const isDaySelected = (dateStr: string) => value.some((s) => s.date === dateStr);
 
@@ -108,26 +118,28 @@ export const AvailabilityGrid = ({ granularity, persistent, endTime, value, onCh
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex items-center justify-between">
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          disabled={!canGoPrev}
-          onClick={() => setWindowStart((w) => addDays(w, -WINDOW_DAYS))}
-        >
-          Previous week
-        </Button>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          disabled={!canGoNext}
-          onClick={() => setWindowStart((w) => addDays(w, WINDOW_DAYS))}
-        >
-          Next week
-        </Button>
-      </div>
+      {!fixedDays && (
+        <div className="flex items-center justify-between">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={!canGoPrev}
+            onClick={() => setWindowStart((w) => addDays(w, -WINDOW_DAYS))}
+          >
+            Previous week
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={!canGoNext}
+            onClick={() => setWindowStart((w) => addDays(w, WINDOW_DAYS))}
+          >
+            Next week
+          </Button>
+        </div>
+      )}
 
       {granularity === "day" ? (
         <div className="flex flex-wrap gap-2">
@@ -138,9 +150,10 @@ export const AvailabilityGrid = ({ granularity, persistent, endTime, value, onCh
               <button
                 key={dateStr}
                 type="button"
+                disabled={readOnly}
                 onClick={() => toggleDay(dateStr)}
                 className={cn(
-                  "flex flex-col items-center rounded-md border border-input px-3 py-2 text-sm transition-colors",
+                  "flex flex-col items-center rounded-md border border-input px-3 py-2 text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-60",
                   selected ? "border-primary bg-primary text-primary-foreground" : "hover:bg-muted",
                 )}
               >
@@ -173,17 +186,19 @@ export const AvailabilityGrid = ({ granularity, persistent, endTime, value, onCh
                   <div
                     key={dateStr + hour}
                     onPointerDown={() => {
+                      if (readOnly) return;
                       const next = !selected;
                       dragValueRef.current = next;
                       setHour(dateStr, hour, next);
                     }}
                     onPointerEnter={() => {
-                      if (dragValueRef.current !== null)
-                        setHour(dateStr, hour, dragValueRef.current);
+                      if (readOnly || dragValueRef.current === null) return;
+                      setHour(dateStr, hour, dragValueRef.current);
                     }}
                     className={cn(
                       "h-6 border border-border/50",
-                      selected ? "bg-primary" : "hover:bg-muted",
+                      readOnly ? "cursor-not-allowed" : "cursor-pointer hover:bg-muted",
+                      selected && "bg-primary",
                     )}
                   />
                 );

@@ -8,6 +8,9 @@ const summarize = (activity: ActivityWithAvailability) => {
   return `You're in for ${days} day${days === 1 ? "" : "s"}`;
 };
 
+const formatDate = (date: string) =>
+  new Date(`${date}T00:00:00`).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+
 const formatDeadline = (endTime: string) =>
   new Date(endTime).toLocaleString(undefined, {
     month: "short",
@@ -28,10 +31,15 @@ export const ActivityCard = ({ activity }: Props) => (
         {activity.description && (
           <p className="text-sm text-muted-foreground">{activity.description}</p>
         )}
+        {activity.suggestedDates && activity.suggestedDates.length > 0 && (
+          <p className="text-xs text-muted-foreground">
+            Suggested: {activity.suggestedDates.map(formatDate).join(", ")}
+          </p>
+        )}
       </div>
       {activity.endTime && (
         <span className="whitespace-nowrap text-xs text-muted-foreground">
-          By {formatDeadline(activity.endTime)}
+          Respond by {formatDeadline(activity.endTime)}
         </span>
       )}
     </div>

@@ -26,6 +26,8 @@ export const AvailabilityDialog = ({ activity }: Props) => {
 
   const upsertAvailability = useUpsertAvailabilityMutation();
 
+  const closed = activity.endTime !== null && activity.endTime < new Date().toISOString();
+
   return (
     <Dialog
       open={open}
@@ -35,40 +37,46 @@ export const AvailabilityDialog = ({ activity }: Props) => {
       }}
     >
       <DialogTrigger render={<Button variant="outline" size="sm" />}>
-        {activity.slots.length > 0 ? "Edit availability" : "I'm in"}
+        {closed ? "View response" : activity.slots.length > 0 ? "Edit availability" : "I'm in"}
       </DialogTrigger>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle>{activity.title}</DialogTitle>
           <DialogDescription>
-            {activity.slotGranularity === "day"
-              ? "Pick the days you can make it."
-              : "Pick the hours you're available."}
+            {closed
+              ? "Responses are closed."
+              : activity.slotGranularity === "day"
+                ? "Pick the days you can make it."
+                : "Pick the hours you're available."}
           </DialogDescription>
         </DialogHeader>
 
         <AvailabilityGrid
           granularity={activity.slotGranularity}
-          persistent={activity.persistent}
-          endTime={activity.endTime}
+          suggestedDates={activity.suggestedDates}
           value={slots}
           onChange={setSlots}
+          readOnly={closed}
         />
 
         <DialogFooter>
-          <DialogClose render={<Button type="button" variant="outline" />}>Cancel</DialogClose>
-          <Button
-            type="button"
-            disabled={upsertAvailability.isPending}
-            onClick={() =>
-              upsertAvailability.mutate(
-                { activityId: activity.id, slots },
-                { onSuccess: () => setOpen(false) },
-              )
-            }
-          >
-            {upsertAvailability.isPending ? "Saving…" : "Save"}
-          </Button>
+          <DialogClose render={<Button type="button" variant="outline" />}>
+            {closed ? "Close" : "Cancel"}
+          </DialogClose>
+          {!closed && (
+            <Button
+              type="button"
+              disabled={upsertAvailability.isPending}
+              onClick={() =>
+                upsertAvailability.mutate(
+                  { activityId: activity.id, slots },
+                  { onSuccess: () => setOpen(false) },
+                )
+              }
+            >
+              {upsertAvailability.isPending ? "Saving…" : "Save"}
+            </Button>
+          )}
         </DialogFooter>
 
         {upsertAvailability.isError && (

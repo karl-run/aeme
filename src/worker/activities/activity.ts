@@ -12,6 +12,7 @@ export const createActivity = async (
     endTime: string | null;
     persistent: boolean;
     slotGranularity: "day" | "hourly";
+    suggestedDates: string[] | null;
   },
 ) => {
   const db = createDb(env);
@@ -26,6 +27,7 @@ export const createActivity = async (
       endTime: params.persistent ? null : params.endTime,
       persistent: params.persistent,
       slotGranularity: params.slotGranularity,
+      suggestedDates: params.persistent ? null : params.suggestedDates,
       archived: false,
       created: new Date().toISOString(),
     })
@@ -53,6 +55,7 @@ export const listActivitiesForChannel = async (env: Env, channelId: string, user
       endTime: activitiesTable.endTime,
       persistent: activitiesTable.persistent,
       slotGranularity: activitiesTable.slotGranularity,
+      suggestedDates: activitiesTable.suggestedDates,
       created: activitiesTable.created,
       slots: activityAvailabilityTable.slots,
     })

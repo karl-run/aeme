@@ -31,10 +31,15 @@ const createActivitySchema = z
     endTime: z.iso.datetime({ local: true }).nullable(),
     persistent: z.boolean(),
     slotGranularity: z.enum(["day", "hourly"]),
+    suggestedDates: z.array(z.iso.date()).min(1).nullable(),
   })
   .refine((data) => data.persistent || data.endTime !== null, {
     message: "End time is required unless the activity is persistent.",
     path: ["endTime"],
+  })
+  .refine((data) => !data.persistent || data.suggestedDates === null, {
+    message: "Suggested dates are only supported for non-persistent activities.",
+    path: ["suggestedDates"],
   });
 
 const activitySlotSchema = z
@@ -91,7 +96,8 @@ export const apiRouter = new Hono<{ Bindings: Env }>()
     const session = sessionId ? await getSessionMeta(c.env, sessionId) : null;
     if (!session) return c.json({ error: "Unauthorized" }, 401);
 
-    const { title, description, endTime, persistent, slotGranularity } = c.req.valid("json");
+    const { title, description, endTime, persistent, slotGranularity, suggestedDates } =
+      c.req.valid("json");
     const activity = await createActivity(c.env, {
       channelId: session.channelId,
       title,
@@ -99,6 +105,7 @@ export const apiRouter = new Hono<{ Bindings: Env }>()
       endTime,
       persistent,
       slotGranularity,
+      suggestedDates,
     });
 
     return c.json({ activity });
@@ -124,11 +131,15 @@ export const apiRouter = new Hono<{ Bindings: Env }>()
 
     const { slots } = c.req.valid("json");
 
-    if (!activity.persistent && activity.endTime) {
-      const deadline = activity.endTime.slice(0, 10);
-      const tooLate = slots.some((slot) => slot.date > deadline);
-      if (tooLate) {
-        return c.json({ error: "Slot date is after the activity's end time." }, 400);
+    if (activity.endTime && activity.endTime < new Date().toISOString()) {
+      return c.json({ error: "This request has closed." }, 400);
+    }
+
+    if (activity.suggestedDates) {
+      const allowedDates = new Set(activity.suggestedDates);
+      const notSuggested = slots.some((slot) => !allowedDates.has(slot.date));
+      if (notSuggested) {
+        return c.json({ error: "Slot date is not one of the suggested dates." }, 400);
       }
     }
 
