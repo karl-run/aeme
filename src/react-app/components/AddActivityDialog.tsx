@@ -104,6 +104,7 @@ export const AddActivityDialog = () => {
               value={endTime}
               onChange={(e) => setEndTime(e.target.value)}
               disabled={persistent}
+              required={!persistent}
             />
           </div>
 

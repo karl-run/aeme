@@ -19,12 +19,17 @@ const loginSchema = z.object({
     .transform((otp) => otp.toUpperCase()),
 });
 
-const createActivitySchema = z.object({
-  title: z.string().trim().min(1),
-  description: z.string().trim(),
-  endTime: z.iso.datetime({ local: true }).nullable(),
-  persistent: z.boolean(),
-});
+const createActivitySchema = z
+  .object({
+    title: z.string().trim().min(1),
+    description: z.string().trim(),
+    endTime: z.iso.datetime({ local: true }).nullable(),
+    persistent: z.boolean(),
+  })
+  .refine((data) => data.persistent || data.endTime !== null, {
+    message: "End time is required unless the activity is persistent.",
+    path: ["endTime"],
+  });
 
 export const apiRouter = new Hono<{ Bindings: Env }>()
   .get("/session", async (c) => {
