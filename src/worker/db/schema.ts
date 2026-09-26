@@ -58,11 +58,15 @@ export const activitiesTable = sqliteTable(
     description: text().notNull(),
     endTime: text("end_time"),
     persistent: integer({ mode: "boolean" }).notNull().default(false),
+    slotGranularity: text("slot_granularity", { enum: ["day", "hourly"] })
+      .notNull()
+      .default("day"),
     archived: integer({ mode: "boolean" }).notNull().default(false),
     created: text().notNull(),
   },
   (t) => [
     check("activities_persistent_no_end_time", sql`${t.persistent} = 0 OR ${t.endTime} IS NULL`),
+    check("activities_slot_granularity_valid", sql`${t.slotGranularity} IN ('day', 'hourly')`),
   ],
 );
 

@@ -3,7 +3,12 @@ import { Hono } from "hono";
 import { deleteCookie, getCookie } from "hono/cookie";
 import * as z from "zod";
 
-import { createActivity } from "../activities/activity.ts";
+import {
+  createActivity,
+  getActivityById,
+  listActivitiesForChannel,
+} from "../activities/activity.ts";
+import { upsertAvailability } from "../activities/availability.ts";
 import { completeLogin } from "../auth/otp.ts";
 import {
   deleteSession,
@@ -25,11 +30,33 @@ const createActivitySchema = z
     description: z.string().trim(),
     endTime: z.iso.datetime({ local: true }).nullable(),
     persistent: z.boolean(),
+    slotGranularity: z.enum(["day", "hourly"]),
   })
   .refine((data) => data.persistent || data.endTime !== null, {
     message: "End time is required unless the activity is persistent.",
     path: ["endTime"],
   });
+
+const activitySlotSchema = z
+  .object({
+    date: z.iso.date(),
+    from: z
+      .string()
+      .regex(/^\d{2}:\d{2}$/)
+      .optional(),
+    to: z
+      .string()
+      .regex(/^\d{2}:\d{2}$/)
+      .optional(),
+  })
+  .refine((slot) => !slot.from || !slot.to || slot.from < slot.to, {
+    message: "from must be before to",
+    path: ["to"],
+  });
+
+const upsertAvailabilitySchema = z.object({
+  slots: z.array(activitySlotSchema),
+});
 
 export const apiRouter = new Hono<{ Bindings: Env }>()
   .get("/session", async (c) => {
@@ -64,16 +91,54 @@ export const apiRouter = new Hono<{ Bindings: Env }>()
     const session = sessionId ? await getSessionMeta(c.env, sessionId) : null;
     if (!session) return c.json({ error: "Unauthorized" }, 401);
 
-    const { title, description, endTime, persistent } = c.req.valid("json");
+    const { title, description, endTime, persistent, slotGranularity } = c.req.valid("json");
     const activity = await createActivity(c.env, {
       channelId: session.channelId,
       title,
       description,
       endTime,
       persistent,
+      slotGranularity,
     });
 
     return c.json({ activity });
+  })
+  .get("/activities", async (c) => {
+    const sessionId = getCookie(c, SESSION_COOKIE_NAME);
+    const session = sessionId ? await getSessionMeta(c.env, sessionId) : null;
+    if (!session) return c.json({ error: "Unauthorized" }, 401);
+
+    const activities = await listActivitiesForChannel(c.env, session.channelId, session.userId);
+    return c.json({ activities });
+  })
+  .put("/activities/:id/availability", zValidator("json", upsertAvailabilitySchema), async (c) => {
+    const sessionId = getCookie(c, SESSION_COOKIE_NAME);
+    const session = sessionId ? await getSessionMeta(c.env, sessionId) : null;
+    if (!session) return c.json({ error: "Unauthorized" }, 401);
+
+    const activityId = c.req.param("id");
+    const activity = await getActivityById(c.env, activityId);
+    if (!activity || activity.channelId !== session.channelId) {
+      return c.json({ error: "Not found" }, 404);
+    }
+
+    const { slots } = c.req.valid("json");
+
+    if (!activity.persistent && activity.endTime) {
+      const deadline = activity.endTime.slice(0, 10);
+      const tooLate = slots.some((slot) => slot.date > deadline);
+      if (tooLate) {
+        return c.json({ error: "Slot date is after the activity's end time." }, 400);
+      }
+    }
+
+    const availability = await upsertAvailability(c.env, {
+      activityId,
+      userId: session.userId,
+      slots,
+    });
+
+    return c.json({ availability });
   });
 
 if (import.meta.env.DEV) {

@@ -23,6 +23,7 @@ export const AddActivityDialog = () => {
   const [description, setDescription] = useState("");
   const [endTime, setEndTime] = useState("");
   const [persistent, setPersistent] = useState(false);
+  const [slotGranularity, setSlotGranularity] = useState<"day" | "hourly">("day");
 
   const createActivity = useCreateActivityMutation();
 
@@ -31,6 +32,7 @@ export const AddActivityDialog = () => {
     setDescription("");
     setEndTime("");
     setPersistent(false);
+    setSlotGranularity("day");
   };
 
   const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
@@ -42,6 +44,7 @@ export const AddActivityDialog = () => {
         description,
         endTime: persistent ? null : endTime || null,
         persistent,
+        slotGranularity,
       },
       {
         onSuccess: () => {
@@ -94,6 +97,30 @@ export const AddActivityDialog = () => {
               onCheckedChange={setPersistent}
             />
             <Label htmlFor="activity-persistent">Persistent (no end time)</Label>
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <Label>Availability type</Label>
+            <div className="flex gap-4">
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="radio"
+                  name="slot-granularity"
+                  checked={slotGranularity === "day"}
+                  onChange={() => setSlotGranularity("day")}
+                />
+                Any time that day
+              </label>
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="radio"
+                  name="slot-granularity"
+                  checked={slotGranularity === "hourly"}
+                  onChange={() => setSlotGranularity("hourly")}
+                />
+                Specific hours
+              </label>
+            </div>
           </div>
 
           <div className="flex flex-col gap-1.5">
