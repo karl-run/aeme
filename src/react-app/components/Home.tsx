@@ -3,7 +3,6 @@ import { Link } from "@tanstack/react-router";
 import { type ActivityWithAvailability, useActivitiesQuery } from "../queries/activities.ts";
 import { useSessionQuery } from "../queries/session.ts";
 import { ActivityCard } from "./ActivityCard.tsx";
-import { AddActivityDialog } from "./AddActivityDialog.tsx";
 import { OngoingBoard } from "./OngoingBoard.tsx";
 
 const isPast = (activity: ActivityWithAvailability) =>
@@ -45,11 +44,6 @@ export const Home = () => {
 
   return (
     <div className="flex w-full flex-col items-start gap-6 p-2 md:px-6">
-      <div className="flex w-full items-center justify-between">
-        <h3>Welcome back, {session.userName}.</h3>
-        <AddActivityDialog />
-      </div>
-
       <section className="flex w-full flex-col gap-3">
         <h2 className="text-lg font-semibold">Ongoing</h2>
         <OngoingBoard activities={ongoing} />

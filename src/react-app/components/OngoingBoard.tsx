@@ -8,7 +8,9 @@ import { useUpsertAvailabilityMutation } from "../queries/availability.ts";
 import { Button } from "./ui/button.tsx";
 
 const HOURS = Array.from({ length: 16 }, (_, i) => i + 8); // 08:00–23:00, each cell covers one hour
-const WINDOW_DAYS = 7;
+const MIN_VISIBLE_DAYS = 7;
+const LABEL_COLUMN_PX = 64; // 4rem
+const DAY_COLUMN_MAX_PX = 80; // 5rem
 const SAVE_DEBOUNCE_MS = 600;
 
 const toDateStr = (d: Date) => {
@@ -143,7 +145,7 @@ const PersistentActivityRows = ({ activity, days }: RowProps) => {
               type="button"
               onClick={() => toggleDay(dateStr)}
               className={cn(
-                "flex items-center justify-center py-2 transition-colors",
+                "flex h-8 items-center justify-center transition-colors",
                 selected ? "bg-primary text-primary-foreground" : "hover:bg-muted",
               )}
             >
@@ -199,8 +201,26 @@ type Props = {
 export const OngoingBoard = ({ activities }: Props) => {
   const today = startOfDay(new Date());
   const [windowStart, setWindowStart] = useState(today);
+  const [visibleDays, setVisibleDays] = useState(MIN_VISIBLE_DAYS);
 
-  const days = Array.from({ length: WINDOW_DAYS }, (_, i) => addDays(windowStart, i));
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+
+    const recompute = () => {
+      const fit = Math.floor((el.clientWidth - LABEL_COLUMN_PX) / DAY_COLUMN_MAX_PX);
+      setVisibleDays(Math.max(MIN_VISIBLE_DAYS, fit));
+    };
+
+    recompute();
+    const observer = new ResizeObserver(recompute);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  const days = Array.from({ length: visibleDays }, (_, i) => addDays(windowStart, i));
 
   if (activities.length === 0) {
     return <p className="text-sm text-muted-foreground">No recurring activities yet.</p>;
@@ -214,24 +234,25 @@ export const OngoingBoard = ({ activities }: Props) => {
           variant="outline"
           size="sm"
           disabled={windowStart <= today}
-          onClick={() => setWindowStart((w) => addDays(w, -WINDOW_DAYS))}
+          onClick={() => setWindowStart((w) => addDays(w, -visibleDays))}
         >
-          Previous week
+          Previous
         </Button>
         <Button
           type="button"
           variant="outline"
           size="sm"
-          onClick={() => setWindowStart((w) => addDays(w, WINDOW_DAYS))}
+          onClick={() => setWindowStart((w) => addDays(w, visibleDays))}
         >
-          Next week
+          Next
         </Button>
       </div>
 
       <div
+        ref={containerRef}
         className="grid w-full select-none overflow-x-auto"
         style={{
-          gridTemplateColumns: `4rem repeat(${days.length}, minmax(3rem, 1fr))`,
+          gridTemplateColumns: `${LABEL_COLUMN_PX}px repeat(${days.length}, minmax(3rem, ${DAY_COLUMN_MAX_PX}px))`,
         }}
       >
         <div />

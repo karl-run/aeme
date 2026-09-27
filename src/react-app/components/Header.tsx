@@ -1,6 +1,17 @@
 import { Link } from "@tanstack/react-router";
+import { ChevronDownIcon } from "lucide-react";
 
 import { useLogoutMutation, useSessionQuery } from "../queries/session.ts";
+import { AddActivityDialog } from "./AddActivityDialog.tsx";
+import { Button } from "./ui/button.tsx";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLinkItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "./ui/dropdown-menu.tsx";
 
 export const Header = () => {
   const { data, isPending } = useSessionQuery();
@@ -9,32 +20,48 @@ export const Header = () => {
   const session = data?.session;
 
   return (
-    <header className="flex items-center justify-between px-4 py-3 border-b border-zinc-700">
-      <Link to="/" className="font-semibold">
-        æme
-      </Link>
-      <div className="flex items-center gap-3 text-sm text-zinc-400">
-        {isPending ? (
-          <span className="h-4 w-40 animate-pulse rounded bg-zinc-700" />
-        ) : (
-          <>
-            <span>
-              {session
-                ? `Logged in as ${session.userName} · #${session.channelName}`
-                : "Not logged in"}
-            </span>
-            {session && (
-              <button
-                type="button"
-                onClick={() => logout.mutate()}
-                disabled={logout.isPending}
-                className="underline disabled:opacity-50"
-              >
-                Log out
-              </button>
-            )}
-          </>
-        )}
+    <header className="border-b border-zinc-700">
+      <div className="mx-auto flex w-full max-w-4xl items-center justify-between px-4 py-3">
+        <Link to="/" className="font-semibold">
+          æme
+        </Link>
+        <div className="flex items-center gap-3 text-sm text-zinc-400">
+          {isPending ? (
+            <span className="h-4 w-40 animate-pulse rounded bg-zinc-700" />
+          ) : (
+            <>
+              {!session && <span>Not logged in</span>}
+              {session && (
+                <>
+                  <AddActivityDialog />
+                  <DropdownMenu>
+                    <DropdownMenuTrigger
+                      render={
+                        <Button variant="ghost" size="sm">
+                          {session.userName}
+                          <ChevronDownIcon className="size-4" />
+                        </Button>
+                      }
+                    />
+                    <DropdownMenuContent>
+                      <div className="px-2 py-1.5 text-xs text-muted-foreground">
+                        #{session.channelName}
+                      </div>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuLinkItem render={<Link to="/profile" />}>
+                        Profile
+                      </DropdownMenuLinkItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={() => logout.mutate()} disabled={logout.isPending}>
+                        Log out
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </>
+              )}
+            </>
+          )}
+        </div>
       </div>
     </header>
   );

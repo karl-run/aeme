@@ -70,7 +70,7 @@ export const AddActivityDialog = () => {
         if (!next) reset();
       }}
     >
-      <DialogTrigger render={<Button />}>Add activity</DialogTrigger>
+      <DialogTrigger render={<Button size="sm" />}>Add activity</DialogTrigger>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Add activity</DialogTitle>
