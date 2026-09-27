@@ -4,6 +4,7 @@ import { type ActivityWithAvailability, useActivitiesQuery } from "../queries/ac
 import { useSessionQuery } from "../queries/session.ts";
 import { ActivityCard } from "./ActivityCard.tsx";
 import { AddActivityDialog } from "./AddActivityDialog.tsx";
+import { OngoingBoard } from "./OngoingBoard.tsx";
 
 const isPast = (activity: ActivityWithAvailability) =>
   activity.endTime !== null && activity.endTime < new Date().toISOString();
@@ -43,7 +44,7 @@ export const Home = () => {
   const pastRequests = requests.filter(isPast);
 
   return (
-    <div className="flex w-full max-w-2xl flex-col items-start gap-6 p-2">
+    <div className="flex w-full flex-col items-start gap-6 p-2 md:px-6">
       <div className="flex w-full items-center justify-between">
         <h3>Welcome back, {session.userName}.</h3>
         <AddActivityDialog />
@@ -51,14 +52,10 @@ export const Home = () => {
 
       <section className="flex w-full flex-col gap-3">
         <h2 className="text-lg font-semibold">Ongoing</h2>
-        {ongoing.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No recurring activities yet.</p>
-        ) : (
-          ongoing.map((activity) => <ActivityCard key={activity.id} activity={activity} />)
-        )}
+        <OngoingBoard activities={ongoing} />
       </section>
 
-      <section className="flex w-full flex-col gap-3">
+      <section className="flex w-full max-w-2xl flex-col gap-3">
         <h2 className="text-lg font-semibold">Requests</h2>
         {openRequests.length === 0 ? (
           <p className="text-sm text-muted-foreground">No open requests.</p>
