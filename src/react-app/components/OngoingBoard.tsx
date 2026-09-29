@@ -3,6 +3,7 @@ import { CheckIcon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import type { ActivitySlot } from "../../worker/db/schema.ts";
+import { mineWithOthersClass, othersSlotClass } from "../lib/slot-color.ts";
 import type { ActivityWithAvailability } from "../queries/activities.ts";
 import { useUpsertAvailabilityMutation } from "../queries/availability.ts";
 import { Button } from "./ui/button.tsx";
@@ -168,9 +169,12 @@ const ActivityPickerCard = ({ activity, days }: CardProps) => {
                   className={cn(
                     "group relative flex h-8 items-center justify-center rounded-sm border transition-colors",
                     selected
-                      ? "border-primary bg-primary text-primary-foreground"
+                      ? cn(
+                          "border-primary bg-primary text-primary-foreground",
+                          mineWithOthersClass(others),
+                        )
                       : others > 0
-                        ? "border-amber-500/50 bg-amber-500/10 hover:bg-amber-500/20"
+                        ? othersSlotClass(others)
                         : "border-dashed border-muted-foreground/30 hover:border-primary/60 hover:bg-muted",
                   )}
                 >
@@ -182,7 +186,7 @@ const ActivityPickerCard = ({ activity, days }: CardProps) => {
                     </span>
                   ) : null}
                   {others > 0 && (
-                    <span className="absolute -top-1.5 -right-1.5 flex size-4 items-center justify-center rounded-full bg-amber-500 text-[9px] font-medium text-white">
+                    <span className="absolute -top-1.5 -right-1.5 flex size-4 items-center justify-center rounded-full bg-emerald-900 text-[9px] font-medium text-primary-foreground">
                       {others}
                     </span>
                   )}
@@ -215,21 +219,14 @@ const ActivityPickerCard = ({ activity, days }: CardProps) => {
                     className={cn(
                       "group relative flex h-6 cursor-pointer items-center justify-center border transition-colors",
                       selected
-                        ? "border-primary bg-primary"
+                        ? cn("border-primary bg-primary", mineWithOthersClass(others))
                         : others > 0
-                          ? "border-amber-500/50 bg-amber-500/10 hover:bg-amber-500/20"
+                          ? othersSlotClass(others)
                           : "border-dashed border-muted-foreground/30 hover:border-primary/60 hover:bg-muted",
                     )}
                   >
                     {others > 0 ? (
-                      <span
-                        className={cn(
-                          "text-[9px] font-medium",
-                          selected
-                            ? "text-primary-foreground"
-                            : "text-amber-700 dark:text-amber-400",
-                        )}
-                      >
+                      <span className="text-[9px] font-medium text-primary-foreground">
                         {others}
                       </span>
                     ) : (

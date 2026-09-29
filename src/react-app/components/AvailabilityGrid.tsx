@@ -2,6 +2,7 @@ import { cn } from "cn";
 import { useEffect, useRef, useState } from "react";
 
 import type { ActivitySlot } from "../../worker/db/schema.ts";
+import { mineWithOthersClass, othersSlotClass } from "../lib/slot-color.ts";
 import { Button } from "./ui/button.tsx";
 
 const HOURS = Array.from({ length: 16 }, (_, i) => i + 8); // 08:00–23:00, each cell covers one hour
@@ -160,15 +161,18 @@ export const AvailabilityGrid = ({
                 className={cn(
                   "relative flex flex-col items-center rounded-md border border-input px-3 py-2 text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-60",
                   selected
-                    ? "border-primary bg-primary text-primary-foreground"
+                    ? cn(
+                        "border-primary bg-primary text-primary-foreground",
+                        mineWithOthersClass(others),
+                      )
                     : others > 0
-                      ? "border-amber-500/50 bg-amber-500/10 hover:bg-amber-500/20"
+                      ? othersSlotClass(others)
                       : "hover:bg-muted",
                 )}
               >
                 {formatDayLabel(d)}
                 {others > 0 && (
-                  <span className="absolute -top-1.5 -right-1.5 flex size-4 items-center justify-center rounded-full bg-amber-500 text-[9px] font-medium text-white">
+                  <span className="absolute -top-1.5 -right-1.5 flex size-4 items-center justify-center rounded-full bg-emerald-900 text-[9px] font-medium text-primary-foreground">
                     {others}
                   </span>
                 )}
@@ -214,19 +218,12 @@ export const AvailabilityGrid = ({
                       "flex h-6 items-center justify-center border border-border/50",
                       readOnly ? "cursor-not-allowed" : "cursor-pointer hover:bg-muted",
                       selected
-                        ? "bg-primary"
-                        : others > 0 && "border-amber-500/50 bg-amber-500/10 hover:bg-amber-500/20",
+                        ? cn("bg-primary", mineWithOthersClass(others))
+                        : others > 0 && othersSlotClass(others),
                     )}
                   >
                     {others > 0 && (
-                      <span
-                        className={cn(
-                          "text-[9px] font-medium",
-                          selected
-                            ? "text-primary-foreground"
-                            : "text-amber-700 dark:text-amber-400",
-                        )}
-                      >
+                      <span className="text-[9px] font-medium text-primary-foreground">
                         {others}
                       </span>
                     )}
