@@ -17,11 +17,14 @@ type Props = {
   bookings: BookingSummary[];
 };
 
-/** Horizontal list of upcoming bookings anchored to the right side of an
- * activity's header — soonest booking sits leftmost (closest to the title),
- * later ones extend rightward and scroll out of view once there's no more
- * room, so any number of bookings is supported without breaking the layout.
- * Clicking one opens its full details in a modal. */
+/** Horizontal, scrollable list of upcoming bookings — soonest booking is
+ * leftmost, later ones scroll into view. Deliberately left-aligned (not
+ * `justify-end`): a `justify-content: flex-end`/`center` flex container with
+ * `overflow: auto` computes its rest scroll position as already-scrolled,
+ * which makes the "earlier" content genuinely unreachable via swipe on many
+ * mobile browsers — `justify-start` is the only variant with a normal,
+ * universally-reliable scroll range. Clicking one opens its full details in
+ * a modal. */
 export const UpcomingBookings = ({ bookings }: Props) => {
   const today = toDateStr(new Date());
 
@@ -32,7 +35,7 @@ export const UpcomingBookings = ({ bookings }: Props) => {
   if (upcoming.length === 0) return null;
 
   return (
-    <div className="flex min-w-0 shrink items-center justify-end gap-1.5 overflow-x-auto">
+    <div className="flex min-w-0 shrink items-center gap-1.5 overflow-x-auto">
       {upcoming.map((booking) => (
         <BookingDetailsDialog
           key={booking.id}
