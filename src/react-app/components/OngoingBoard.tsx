@@ -347,7 +347,12 @@ export const OngoingBoard = ({ activities }: Props) => {
       setVisibleDays(Math.max(MIN_VISIBLE_DAYS, fit));
     };
 
-    recompute();
+    // Don't call recompute() synchronously here: right after mount (especially
+    // in production, where CSS loads via a separate <link> rather than being
+    // injected synchronously like Vite's dev server does) `el.clientWidth` can
+    // still reflect a pre-layout/pre-stylesheet size. ResizeObserver's first
+    // callback after `observe()` is guaranteed to report the settled
+    // post-layout size, so rely on that alone for the initial measurement too.
     const observer = new ResizeObserver(recompute);
     observer.observe(el);
     return () => observer.disconnect();
@@ -355,35 +360,37 @@ export const OngoingBoard = ({ activities }: Props) => {
 
   const days = Array.from({ length: visibleDays }, (_, i) => addDays(windowStart, i));
 
-  if (activities.length === 0) {
-    return <p className="text-sm text-muted-foreground">No recurring activities yet.</p>;
-  }
-
   return (
     <div ref={containerRef} className="flex w-full flex-col gap-4">
-      <div className="flex items-center justify-between">
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          disabled={windowStart <= today}
-          onClick={() => setWindowStart((w) => addDays(w, -visibleDays))}
-        >
-          Previous
-        </Button>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={() => setWindowStart((w) => addDays(w, visibleDays))}
-        >
-          Next
-        </Button>
-      </div>
+      {activities.length === 0 ? (
+        <p className="text-sm text-muted-foreground">No recurring activities yet.</p>
+      ) : (
+        <>
+          <div className="flex items-center justify-between">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={windowStart <= today}
+              onClick={() => setWindowStart((w) => addDays(w, -visibleDays))}
+            >
+              Previous
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setWindowStart((w) => addDays(w, visibleDays))}
+            >
+              Next
+            </Button>
+          </div>
 
-      {activities.map((activity) => (
-        <ActivityPickerCard key={activity.id} activity={activity} days={days} />
-      ))}
+          {activities.map((activity) => (
+            <ActivityPickerCard key={activity.id} activity={activity} days={days} />
+          ))}
+        </>
+      )}
     </div>
   );
 };

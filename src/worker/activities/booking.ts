@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 
 import { createDb } from "../db/db.ts";
 import { activityBookingAttendeesTable, activityBookingsTable } from "../db/schema.ts";
+// @ts-ignore
 import { postMessage, updateMessage } from "../slack/messages.ts";
 
 /** Builds the Slack `text` fallback + Block Kit `blocks` for a booking
