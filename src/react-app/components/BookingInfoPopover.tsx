@@ -2,16 +2,23 @@ import { cn } from "cn";
 import { InfoIcon } from "lucide-react";
 
 import type { ActivityWithAvailability } from "../queries/activities.ts";
+import { useSessionQuery } from "../queries/session.ts";
+import { AddBookingDialog } from "./AddBookingDialog.tsx";
+import { Button } from "./ui/button.tsx";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover.tsx";
 
 type BookingSummary = ActivityWithAvailability["bookings"][number];
 
 type Props = {
+  activityId: string;
   bookings: BookingSummary[];
   className?: string;
 };
 
-export const BookingInfoPopover = ({ bookings, className }: Props) => {
+export const BookingInfoPopover = ({ activityId, bookings, className }: Props) => {
+  const { data } = useSessionQuery();
+  const userId = data?.session?.userId;
+
   if (bookings.length === 0) return null;
 
   return (
@@ -36,9 +43,28 @@ export const BookingInfoPopover = ({ bookings, className }: Props) => {
         <div className="flex flex-col gap-3">
           {bookings.map((booking) => (
             <div key={booking.id} className="flex flex-col gap-1">
-              <p className="font-medium">
-                {booking.from}–{booking.to}
-              </p>
+              <div className="flex items-center justify-between gap-2">
+                <p className="font-medium">
+                  {booking.from}–{booking.to}
+                </p>
+                {userId === booking.createdBy && (
+                  <AddBookingDialog
+                    activityId={activityId}
+                    booking={{
+                      id: booking.id,
+                      date: booking.date,
+                      from: booking.from,
+                      to: booking.to,
+                      attendeeUserIds: booking.attendeeUserIds,
+                    }}
+                    trigger={
+                      <Button type="button" variant="outline" size="xs">
+                        Edit
+                      </Button>
+                    }
+                  />
+                )}
+              </div>
               <p className="text-xs text-muted-foreground">Booked by {booking.createdByName}</p>
               <p className="text-xs text-muted-foreground">
                 {booking.attendeeNames.length > 0

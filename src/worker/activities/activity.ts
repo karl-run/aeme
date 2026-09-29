@@ -124,6 +124,7 @@ export const listActivitiesForChannel = async (env: Env, channelId: string, user
           date: activityBookingsTable.date,
           from: activityBookingsTable.from,
           to: activityBookingsTable.to,
+          createdBy: activityBookingsTable.createdBy,
           createdByName: usersTable.name,
         })
         .from(activityBookingsTable)
@@ -136,6 +137,7 @@ export const listActivitiesForChannel = async (env: Env, channelId: string, user
     ? await db
         .select({
           bookingId: activityBookingAttendeesTable.bookingId,
+          userId: activityBookingAttendeesTable.userId,
           name: usersTable.name,
         })
         .from(activityBookingAttendeesTable)
@@ -144,10 +146,15 @@ export const listActivitiesForChannel = async (env: Env, channelId: string, user
     : [];
 
   const attendeeNamesByBooking = new Map<string, string[]>();
+  const attendeeIdsByBooking = new Map<string, string[]>();
   for (const row of attendeeRows) {
     const names = attendeeNamesByBooking.get(row.bookingId) ?? [];
     names.push(row.name);
     attendeeNamesByBooking.set(row.bookingId, names);
+
+    const ids = attendeeIdsByBooking.get(row.bookingId) ?? [];
+    ids.push(row.userId);
+    attendeeIdsByBooking.set(row.bookingId, ids);
   }
 
   const bookedSlotsByActivity = new Map<string, Record<string, boolean>>();
@@ -172,7 +179,9 @@ export const listActivitiesForChannel = async (env: Env, channelId: string, user
       date: booking.date,
       from: booking.from,
       to: booking.to,
+      createdBy: booking.createdBy,
       createdByName: booking.createdByName,
+      attendeeUserIds: attendeeIdsByBooking.get(booking.id) ?? [],
       attendeeNames: attendeeNamesByBooking.get(booking.id) ?? [],
     })),
   }));

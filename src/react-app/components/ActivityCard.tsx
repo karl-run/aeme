@@ -44,7 +44,7 @@ export const ActivityCard = ({ activity }: Props) => (
             Respond by {formatDeadline(activity.endTime)}
           </span>
         )}
-        <UpcomingBookings bookings={activity.bookings} />
+        <UpcomingBookings activityId={activity.id} bookings={activity.bookings} />
       </div>
     </div>
 

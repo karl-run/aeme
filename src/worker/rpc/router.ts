@@ -9,7 +9,7 @@ import {
   listActivitiesForChannel,
 } from "../activities/activity.ts";
 import { upsertAvailability } from "../activities/availability.ts";
-import { createBooking } from "../activities/booking.ts";
+import { createBooking, getBookingById, updateBooking } from "../activities/booking.ts";
 import { completeLogin } from "../auth/otp.ts";
 import {
   deleteSession,
@@ -204,7 +204,54 @@ export const apiRouter = new Hono<{ Bindings: Env }>()
     });
 
     return c.json({ booking });
-  });
+  })
+  .put(
+    "/activities/:id/bookings/:bookingId",
+    zValidator("json", createBookingSchema),
+    async (c) => {
+      const sessionId = getCookie(c, SESSION_COOKIE_NAME);
+      const session = sessionId ? await getSessionMeta(c.env, sessionId) : null;
+      if (!session) return c.json({ error: "Unauthorized" }, 401);
+
+      const activityId = c.req.param("id");
+      const bookingId = c.req.param("bookingId");
+
+      const activity = await getActivityById(c.env, activityId);
+      if (!activity || activity.channelId !== session.channelId) {
+        return c.json({ error: "Not found" }, 404);
+      }
+
+      const booking = await getBookingById(c.env, bookingId);
+      if (!booking || booking.activityId !== activityId) {
+        return c.json({ error: "Not found" }, 404);
+      }
+      if (booking.createdBy !== session.userId) {
+        return c.json({ error: "Only the booking's creator can edit it." }, 403);
+      }
+
+      const { date, from, to, attendeeUserIds } = c.req.valid("json");
+
+      const members = await listChannelMembers(c.env, session.channelId);
+      const memberIds = new Set(members.map((member) => member.userId));
+      if (attendeeUserIds.some((userId) => !memberIds.has(userId))) {
+        return c.json({ error: "Attendee is not a member of this channel." }, 400);
+      }
+
+      await updateBooking(c.env, {
+        bookingId,
+        activityTitle: activity.title,
+        activityChannelId: activity.channelId,
+        createdBy: booking.createdBy,
+        date,
+        from,
+        to,
+        attendeeUserIds,
+        slackMessageTs: booking.slackMessageTs,
+      });
+
+      return c.json({ success: true });
+    },
+  );
 
 if (import.meta.env.DEV) {
   apiRouter.post("/dev/login", async (c) => {

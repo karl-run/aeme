@@ -151,7 +151,7 @@ const ActivityPickerCard = ({ activity, days }: CardProps) => {
             <p className="text-sm text-muted-foreground">{activity.description}</p>
           )}
         </div>
-        <UpcomingBookings bookings={activity.bookings} />
+        <UpcomingBookings activityId={activity.id} bookings={activity.bookings} />
       </div>
 
       <div
@@ -228,6 +228,7 @@ const ActivityPickerCard = ({ activity, days }: CardProps) => {
                   {booked && <div className={bookedSlotOverlayClass} />}
                   {booked && (
                     <BookingInfoPopover
+                      activityId={activity.id}
                       bookings={bookingsForDay(activity.bookings, dateStr)}
                       className="absolute -bottom-2 -left-2"
                     />
@@ -308,6 +309,7 @@ const ActivityPickerCard = ({ activity, days }: CardProps) => {
                       style={bookingOverlayPercent(booking, HOURS)}
                     >
                       <BookingInfoPopover
+                        activityId={activity.id}
                         bookings={[booking]}
                         className="absolute -top-2 -left-2"
                       />

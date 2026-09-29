@@ -55,3 +55,34 @@ export async function postMessage(
 
   return { ts: body.ts };
 }
+
+type UpdateMessageResponse = {
+  ok: boolean;
+  error?: string;
+};
+
+/** Edits a previously-posted message in place. Returns false (and logs) on
+ * failure rather than throwing — the caller decides whether to fall back to
+ * posting a fresh message. */
+export async function updateMessage(
+  env: Env,
+  params: { channel: string; ts: string; text: string; blocks?: unknown[] },
+): Promise<boolean> {
+  const response = await fetch("https://slack.com/api/chat.update", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${env.SLACK_BOT_TOKEN}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(params),
+  });
+
+  const body = (await response.json()) as UpdateMessageResponse;
+
+  if (!body.ok) {
+    console.error(`chat.update failed: ${body.error}`);
+    return false;
+  }
+
+  return true;
+}

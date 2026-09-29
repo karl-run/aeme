@@ -2,7 +2,7 @@ import { eq } from "drizzle-orm";
 
 import { createDb } from "../db/db.ts";
 import { activityBookingAttendeesTable, activityBookingsTable } from "../db/schema.ts";
-import { postMessage } from "../slack/messages.ts";
+import { postMessage, updateMessage } from "../slack/messages.ts";
 
 /** Builds the Slack `text` fallback + Block Kit `blocks` for a booking
  * announcement. Attendees (and the creator) are tagged via Slack's `<@userId>`
@@ -50,6 +50,54 @@ const buildBookingMessage = (params: {
   return { text, blocks };
 };
 
+/** Posts (or edits, if `existingTs` is given) the Slack announcement for a
+ * booking. Falls back to posting a fresh message if editing fails (e.g. the
+ * original was deleted), storing the new `ts` either way. */
+const announceBooking = async (
+  env: Env,
+  params: {
+    bookingId: string;
+    activityChannelId: string;
+    existingTs: string | null;
+    text: string;
+    blocks: unknown[];
+  },
+) => {
+  if (params.existingTs) {
+    const updated = await updateMessage(env, {
+      channel: params.activityChannelId,
+      ts: params.existingTs,
+      text: params.text,
+      blocks: params.blocks,
+    });
+    if (updated) return;
+  }
+
+  const posted = await postMessage(env, {
+    channel: params.activityChannelId,
+    text: params.text,
+    blocks: params.blocks,
+  });
+  if (posted) {
+    const db = createDb(env);
+    await db
+      .update(activityBookingsTable)
+      .set({ slackMessageTs: posted.ts })
+      .where(eq(activityBookingsTable.id, params.bookingId));
+  }
+};
+
+export const getBookingById = async (env: Env, id: string) => {
+  const db = createDb(env);
+
+  const [booking] = await db
+    .select()
+    .from(activityBookingsTable)
+    .where(eq(activityBookingsTable.id, id));
+
+  return booking ?? null;
+};
+
 export const createBooking = async (
   env: Env,
   params: {
@@ -91,14 +139,63 @@ export const createBooking = async (
     createdBy: params.createdBy,
     attendeeUserIds: params.attendeeUserIds,
   });
-  const posted = await postMessage(env, { channel: params.activityChannelId, text, blocks });
-
-  if (posted) {
-    await db
-      .update(activityBookingsTable)
-      .set({ slackMessageTs: posted.ts })
-      .where(eq(activityBookingsTable.id, bookingId));
-  }
+  await announceBooking(env, {
+    bookingId,
+    activityChannelId: params.activityChannelId,
+    existingTs: null,
+    text,
+    blocks,
+  });
 
   return { id: bookingId };
+};
+
+export const updateBooking = async (
+  env: Env,
+  params: {
+    bookingId: string;
+    activityTitle: string;
+    activityChannelId: string;
+    createdBy: string;
+    date: string;
+    from: string;
+    to: string;
+    attendeeUserIds: string[];
+    slackMessageTs: string | null;
+  },
+) => {
+  const db = createDb(env);
+
+  const bookingUpdate = db
+    .update(activityBookingsTable)
+    .set({ date: params.date, from: params.from, to: params.to })
+    .where(eq(activityBookingsTable.id, params.bookingId));
+  const attendeeDelete = db
+    .delete(activityBookingAttendeesTable)
+    .where(eq(activityBookingAttendeesTable.bookingId, params.bookingId));
+  const attendeeInserts = params.attendeeUserIds.map((userId) =>
+    db.insert(activityBookingAttendeesTable).values({
+      id: crypto.randomUUID(),
+      bookingId: params.bookingId,
+      userId,
+    }),
+  );
+
+  await db.batch([bookingUpdate, attendeeDelete, ...attendeeInserts]);
+
+  const { text, blocks } = buildBookingMessage({
+    activityTitle: params.activityTitle,
+    date: params.date,
+    from: params.from,
+    to: params.to,
+    createdBy: params.createdBy,
+    attendeeUserIds: params.attendeeUserIds,
+  });
+  await announceBooking(env, {
+    bookingId: params.bookingId,
+    activityChannelId: params.activityChannelId,
+    existingTs: params.slackMessageTs,
+    text,
+    blocks,
+  });
 };

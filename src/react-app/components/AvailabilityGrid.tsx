@@ -201,6 +201,7 @@ export const AvailabilityGrid = ({
                 )}
                 {booked && (
                   <BookingInfoPopover
+                    activityId={activityId}
                     bookings={bookingsForDay(bookings, dateStr)}
                     className="absolute -bottom-2 -left-2"
                   />
@@ -315,7 +316,11 @@ export const AvailabilityGrid = ({
                     className={bookingOverlayClass}
                     style={bookingOverlayPercent(booking, HOURS)}
                   >
-                    <BookingInfoPopover bookings={[booking]} className="absolute -top-2 -left-2" />
+                    <BookingInfoPopover
+                      activityId={activityId}
+                      bookings={[booking]}
+                      className="absolute -top-2 -left-2"
+                    />
                   </div>
                 ))}
               </div>

@@ -14,6 +14,7 @@ const formatChipDate = (date: string) =>
   new Date(`${date}T00:00:00`).toLocaleDateString(undefined, { month: "short", day: "numeric" });
 
 type Props = {
+  activityId: string;
   bookings: BookingSummary[];
 };
 
@@ -25,7 +26,7 @@ type Props = {
  * mobile browsers — `justify-start` is the only variant with a normal,
  * universally-reliable scroll range. Clicking one opens its full details in
  * a modal. */
-export const UpcomingBookings = ({ bookings }: Props) => {
+export const UpcomingBookings = ({ activityId, bookings }: Props) => {
   const today = toDateStr(new Date());
 
   const upcoming = bookings
@@ -39,6 +40,7 @@ export const UpcomingBookings = ({ bookings }: Props) => {
       {upcoming.map((booking) => (
         <BookingDetailsDialog
           key={booking.id}
+          activityId={activityId}
           booking={booking}
           trigger={
             <button
