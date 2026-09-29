@@ -10,14 +10,20 @@ import {
   usersTable,
 } from "../db/schema.ts";
 
-/** Key for a slot in an `othersCount` map: the date alone for day-granularity
- * activities, or `date|hour` per hour covered by an hourly slot. */
+const timeToMinutes = (time: string) => Number(time.slice(0, 2)) * 60 + Number(time.slice(3, 5));
+
+/** Key for an availability slot in an `othersCount` map: the date alone for
+ * day-granularity activities, or `date|hour` per hour cell the slot's
+ * from/to range overlaps for an hourly slot. */
 const slotCountKeys = (slot: ActivitySlot): string[] => {
   if (!slot.from || !slot.to) return [slot.date];
 
-  const fromHour = Number(slot.from.slice(0, 2));
-  const toHour = Number(slot.to.slice(0, 2));
-  return Array.from({ length: toHour - fromHour }, (_, i) => `${slot.date}|${fromHour + i}`);
+  const startHour = Math.floor(timeToMinutes(slot.from) / 60);
+  const endHourExclusive = Math.ceil(timeToMinutes(slot.to) / 60);
+  return Array.from(
+    { length: Math.max(0, endHourExclusive - startHour) },
+    (_, i) => `${slot.date}|${startHour + i}`,
+  );
 };
 
 export const createActivity = async (
@@ -148,7 +154,7 @@ export const listActivitiesForChannel = async (env: Env, channelId: string, user
   const bookingsByActivity = new Map<string, typeof bookingRows>();
   for (const booking of bookingRows) {
     const booked = bookedSlotsByActivity.get(booking.activityId) ?? {};
-    for (const key of slotCountKeys(booking)) booked[key] = true;
+    booked[booking.date] = true;
     bookedSlotsByActivity.set(booking.activityId, booked);
 
     const list = bookingsByActivity.get(booking.activityId) ?? [];

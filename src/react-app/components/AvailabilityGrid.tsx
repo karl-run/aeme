@@ -3,8 +3,13 @@ import { PlusIcon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import type { ActivitySlot } from "../../worker/db/schema.ts";
-import { bookingsForDay, bookingsForHour } from "../lib/booking-slots.ts";
-import { bookedSlotOverlayClass, mineWithOthersClass, othersSlotClass } from "../lib/slot-color.ts";
+import { bookingOverlayPercent, bookingsForDay } from "../lib/booking-slots.ts";
+import {
+  bookedSlotOverlayClass,
+  bookingOverlayClass,
+  mineWithOthersClass,
+  othersSlotClass,
+} from "../lib/slot-color.ts";
 import type { ActivityWithAvailability } from "../queries/activities.ts";
 import { AddBookingDialog } from "./AddBookingDialog.tsx";
 import { BookingInfoPopover } from "./BookingInfoPopover.tsx";
@@ -185,7 +190,7 @@ export const AvailabilityGrid = ({
                   )}
                 >
                   {formatDayLabel(d)}
-                  {booked && <div className={bookedSlotOverlayClass()} />}
+                  {booked && <div className={bookedSlotOverlayClass} />}
                 </button>
                 {others > 0 && (
                   <span className="absolute -top-1.5 -right-1.5 flex size-4 items-center justify-center rounded-full bg-emerald-900 text-[9px] font-medium text-primary-foreground">
@@ -247,63 +252,66 @@ export const AvailabilityGrid = ({
             );
           })}
 
-          {HOURS.map((hour) => (
-            <div key={hour} className="contents">
-              <div className="pr-2 text-right text-xs text-muted-foreground">
+          <div className="flex flex-col">
+            {HOURS.map((hour) => (
+              <div
+                key={hour}
+                className="flex h-6 items-center justify-end pr-2 text-xs text-muted-foreground"
+              >
                 {formatHour(hour)}
               </div>
-              {days.map((d) => {
-                const dateStr = toDateStr(d);
-                const selected = hourSetForDate(dateStr).has(hour);
-                const others = othersCount[`${dateStr}|${hour}`] ?? 0;
-                const booked = bookedSlots[`${dateStr}|${hour}`] ?? false;
-                const bookedAbove = bookedSlots[`${dateStr}|${hour - 1}`] ?? false;
-                const bookedBelow = bookedSlots[`${dateStr}|${hour + 1}`] ?? false;
-                return (
+            ))}
+          </div>
+
+          {days.map((d) => {
+            const dateStr = toDateStr(d);
+            return (
+              <div key={dateStr} className="relative flex flex-col">
+                {HOURS.map((hour) => {
+                  const selected = hourSetForDate(dateStr).has(hour);
+                  const others = othersCount[`${dateStr}|${hour}`] ?? 0;
+                  return (
+                    <div
+                      key={hour}
+                      onPointerDown={() => {
+                        if (readOnly) return;
+                        const next = !selected;
+                        dragValueRef.current = next;
+                        setHour(dateStr, hour, next);
+                      }}
+                      onPointerEnter={() => {
+                        if (readOnly || dragValueRef.current === null) return;
+                        setHour(dateStr, hour, dragValueRef.current);
+                      }}
+                      className={cn(
+                        "flex h-6 items-center justify-center border border-border/50",
+                        readOnly ? "cursor-not-allowed" : "cursor-pointer hover:bg-muted",
+                        selected
+                          ? cn("bg-primary", mineWithOthersClass(others))
+                          : others > 0 && othersSlotClass(others),
+                      )}
+                    >
+                      {others > 0 && (
+                        <span className="text-[9px] font-medium text-primary-foreground">
+                          {others}
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
+
+                {bookingsForDay(bookings, dateStr).map((booking) => (
                   <div
-                    key={dateStr + hour}
-                    onPointerDown={() => {
-                      if (readOnly) return;
-                      const next = !selected;
-                      dragValueRef.current = next;
-                      setHour(dateStr, hour, next);
-                    }}
-                    onPointerEnter={() => {
-                      if (readOnly || dragValueRef.current === null) return;
-                      setHour(dateStr, hour, dragValueRef.current);
-                    }}
-                    className={cn(
-                      "relative flex h-6 items-center justify-center border border-border/50",
-                      readOnly ? "cursor-not-allowed" : "cursor-pointer hover:bg-muted",
-                      selected
-                        ? cn("bg-primary", mineWithOthersClass(others))
-                        : others > 0 && othersSlotClass(others),
-                    )}
+                    key={booking.id}
+                    className={bookingOverlayClass}
+                    style={bookingOverlayPercent(booking, HOURS)}
                   >
-                    {others > 0 && (
-                      <span className="text-[9px] font-medium text-primary-foreground">
-                        {others}
-                      </span>
-                    )}
-                    {booked && (
-                      <div
-                        className={bookedSlotOverlayClass({
-                          top: !bookedAbove,
-                          bottom: !bookedBelow,
-                        })}
-                      />
-                    )}
-                    {booked && !bookedAbove && (
-                      <BookingInfoPopover
-                        bookings={bookingsForHour(bookings, dateStr, hour)}
-                        className="absolute top-0 right-0"
-                      />
-                    )}
+                    <BookingInfoPopover bookings={[booking]} className="absolute -top-2 -right-2" />
                   </div>
-                );
-              })}
-            </div>
-          ))}
+                ))}
+              </div>
+            );
+          })}
         </div>
       )}
     </div>

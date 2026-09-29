@@ -3,8 +3,13 @@ import { CheckIcon, PlusIcon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import type { ActivitySlot } from "../../worker/db/schema.ts";
-import { bookingsForDay, bookingsForHour } from "../lib/booking-slots.ts";
-import { bookedSlotOverlayClass, mineWithOthersClass, othersSlotClass } from "../lib/slot-color.ts";
+import { bookingOverlayPercent, bookingsForDay } from "../lib/booking-slots.ts";
+import {
+  bookedSlotOverlayClass,
+  bookingOverlayClass,
+  mineWithOthersClass,
+  othersSlotClass,
+} from "../lib/slot-color.ts";
 import type { ActivityWithAvailability } from "../queries/activities.ts";
 import { useUpsertAvailabilityMutation } from "../queries/availability.ts";
 import { AddBookingDialog } from "./AddBookingDialog.tsx";
@@ -217,7 +222,7 @@ const ActivityPickerCard = ({ activity, days }: CardProps) => {
                       {others}
                     </span>
                   )}
-                  {booked && <div className={bookedSlotOverlayClass()} />}
+                  {booked && <div className={bookedSlotOverlayClass} />}
                   {booked && (
                     <BookingInfoPopover
                       bookings={bookingsForDay(activity.bookings, dateStr)}
@@ -229,69 +234,82 @@ const ActivityPickerCard = ({ activity, days }: CardProps) => {
             })}
           </>
         ) : (
-          HOURS.map((hour) => (
-            <div key={hour} className="contents">
-              <div className="pr-2 text-right text-xs text-muted-foreground">
-                {formatHour(hour)}
-              </div>
-              {days.map((d) => {
-                const dateStr = toDateStr(d);
-                const selected = hourSetForDate(slots, dateStr).has(hour);
-                const others = activity.othersCount[`${dateStr}|${hour}`] ?? 0;
-                const booked = activity.bookedSlots[`${dateStr}|${hour}`] ?? false;
-                const bookedAbove = activity.bookedSlots[`${dateStr}|${hour - 1}`] ?? false;
-                const bookedBelow = activity.bookedSlots[`${dateStr}|${hour + 1}`] ?? false;
-                return (
-                  <div
-                    key={dateStr + hour}
-                    onPointerDown={() => {
-                      const next = !selected;
-                      dragValueRef.current = next;
-                      setHour(dateStr, hour, next);
-                    }}
-                    onPointerEnter={() => {
-                      if (dragValueRef.current !== null)
-                        setHour(dateStr, hour, dragValueRef.current);
-                    }}
-                    className={cn(
-                      "group relative flex h-6 cursor-pointer items-center justify-center border transition-colors",
-                      selected
-                        ? cn("border-primary bg-primary", mineWithOthersClass(others))
-                        : others > 0
-                          ? othersSlotClass(others)
-                          : "border-dashed border-muted-foreground/30 hover:border-primary/60 hover:bg-muted",
-                    )}
-                  >
-                    {others > 0 ? (
-                      <span className="text-[9px] font-medium text-primary-foreground">
-                        {others}
-                      </span>
-                    ) : (
-                      !selected && (
-                        <span className="text-[9px] font-medium text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100">
-                          æme!
-                        </span>
-                      )
-                    )}
-                    {booked && (
-                      <div
-                        className={bookedSlotOverlayClass({
-                          top: !bookedAbove,
-                          bottom: !bookedBelow,
-                        })}
-                      />
-                    )}
-                    {booked && !bookedAbove && (
-                      <BookingInfoPopover
-                        bookings={bookingsForHour(activity.bookings, dateStr, hour)}
-                        className="absolute top-0 right-0"
-                      />
-                    )}
-                  </div>
-                );
-              })}
+          <div
+            className="col-span-full grid"
+            style={{
+              gridTemplateColumns: `${LABEL_COLUMN_PX}px repeat(${days.length}, minmax(3rem, ${DAY_COLUMN_MAX_PX}px))`,
+            }}
+          >
+            <div className="flex flex-col">
+              {HOURS.map((hour) => (
+                <div
+                  key={hour}
+                  className="flex h-6 items-center justify-end pr-2 text-xs text-muted-foreground"
+                >
+                  {formatHour(hour)}
+                </div>
+              ))}
             </div>
-          ))
+
+            {days.map((d) => {
+              const dateStr = toDateStr(d);
+              return (
+                <div key={dateStr} className="relative flex flex-col">
+                  {HOURS.map((hour) => {
+                    const selected = hourSetForDate(slots, dateStr).has(hour);
+                    const others = activity.othersCount[`${dateStr}|${hour}`] ?? 0;
+                    return (
+                      <div
+                        key={hour}
+                        onPointerDown={() => {
+                          const next = !selected;
+                          dragValueRef.current = next;
+                          setHour(dateStr, hour, next);
+                        }}
+                        onPointerEnter={() => {
+                          if (dragValueRef.current !== null)
+                            setHour(dateStr, hour, dragValueRef.current);
+                        }}
+                        className={cn(
+                          "group relative flex h-6 cursor-pointer items-center justify-center border transition-colors",
+                          selected
+                            ? cn("border-primary bg-primary", mineWithOthersClass(others))
+                            : others > 0
+                              ? othersSlotClass(others)
+                              : "border-dashed border-muted-foreground/30 hover:border-primary/60 hover:bg-muted",
+                        )}
+                      >
+                        {others > 0 ? (
+                          <span className="text-[9px] font-medium text-primary-foreground">
+                            {others}
+                          </span>
+                        ) : (
+                          !selected && (
+                            <span className="text-[9px] font-medium text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100">
+                              æme!
+                            </span>
+                          )
+                        )}
+                      </div>
+                    );
+                  })}
+
+                  {bookingsForDay(activity.bookings, dateStr).map((booking) => (
+                    <div
+                      key={booking.id}
+                      className={bookingOverlayClass}
+                      style={bookingOverlayPercent(booking, HOURS)}
+                    >
+                      <BookingInfoPopover
+                        bookings={[booking]}
+                        className="absolute -top-2 -right-2"
+                      />
+                    </div>
+                  ))}
+                </div>
+              );
+            })}
+          </div>
         )}
       </div>
     </div>

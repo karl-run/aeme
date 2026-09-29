@@ -24,7 +24,7 @@ export const BookingInfoPopover = ({ bookings, className }: Props) => {
             onPointerDown={(e) => e.stopPropagation()}
             aria-label="Booking details"
             className={cn(
-              "flex size-6 items-center justify-center rounded-full bg-background text-green-600 shadow",
+              "pointer-events-auto flex size-6 items-center justify-center rounded-full bg-background text-green-600 shadow",
               className,
             )}
           />

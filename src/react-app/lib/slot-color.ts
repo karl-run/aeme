@@ -24,24 +24,16 @@ export const mineWithOthersClass = (count: number) =>
       MINE_WITH_OTHERS_TIERS[0].classes)
     : undefined;
 
-/** Overlay marking a slot that has an actual booking — a thick dotted green
- * outline, layered on top of (not replacing) the cell's own fill/border.
- *
- * Adjacent booked hour-cells (same booking, or two touching bookings) should
- * read as one continuous outline rather than a stack of separate boxes, so
- * callers pass which of the top/bottom edges are actually the outer edge of
- * the booked run — the shared edge between two booked neighbors is omitted.
- * Left/right are always drawn: a booking never spans across days. */
-export const bookedSlotOverlayClass = (
-  edges: { top: boolean; bottom: boolean } = { top: true, bottom: true },
-) =>
-  [
-    "pointer-events-none absolute inset-0 border-x-[3px] border-dotted border-green-500",
-    edges.top && edges.bottom
-      ? "rounded-[inherit] border-t-[3px] border-b-[3px]"
-      : edges.top
-        ? "rounded-t-sm border-t-[3px] border-b-0"
-        : edges.bottom
-          ? "rounded-b-sm border-b-[3px] border-t-0"
-          : "border-t-0 border-b-0",
-  ].join(" ");
+/** Overlay marking a day-mode slot (a whole cell) that has an actual
+ * booking — a thick dotted green outline, layered on top of (not replacing)
+ * the cell's own fill/border. */
+export const bookedSlotOverlayClass =
+  "pointer-events-none absolute inset-0 rounded-[inherit] border-[3px] border-dotted border-green-500";
+
+/** Overlay for a single booking on an hourly grid, sized/positioned via
+ * inline `top`/`height` (see `bookingOverlayPercent`) so it's proportional
+ * to the booking's actual start/end minutes rather than snapping to whole
+ * hour-cell boundaries — a 30-minute booking reads as visibly smaller than a
+ * 2-hour one instead of both filling a full cell. */
+export const bookingOverlayClass =
+  "pointer-events-none absolute inset-x-0 rounded-sm border-[3px] border-dotted border-green-500";
