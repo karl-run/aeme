@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 
-import { ensureChannel } from "../channels/channel.ts";
+import { ensureChannel, ensureChannelMember } from "../channels/channel.ts";
 import { BASE_URL } from "../constants.ts";
 import { createDb } from "../db/db.ts";
 import { otpLoginsTable } from "../db/schema.ts";
@@ -36,6 +36,7 @@ export const initiateLogin = async (
     name: params.channelName,
     ownerIdIfNew: params.userId,
   });
+  await ensureChannelMember(env, { channelId: params.channelId, userId: params.userId });
 
   const db = createDb(env);
   const otp = generateOtp();

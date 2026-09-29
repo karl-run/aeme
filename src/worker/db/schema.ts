@@ -41,6 +41,25 @@ export const sessionsTable = sqliteTable("sessions", {
   expires: text().notNull(),
 });
 
+/** Durable record that a user belongs to a channel — a user can be a member
+ * of multiple channels on the same Slack workspace. Recorded the first time
+ * they interact with æme from that channel (see `ensureChannelMember`), not
+ * synced from Slack's own membership list. */
+export const channelMembersTable = sqliteTable(
+  "channel_members",
+  {
+    id: text().primaryKey(),
+    channelId: text("channel_id")
+      .notNull()
+      .references(() => channelsTable.channelId),
+    userId: text("user_id")
+      .notNull()
+      .references(() => usersTable.userId),
+    created: text().notNull(),
+  },
+  (t) => [uniqueIndex("channel_members_channel_user").on(t.channelId, t.userId)],
+);
+
 export type ActivitySlot = {
   date: string;
   from?: string;

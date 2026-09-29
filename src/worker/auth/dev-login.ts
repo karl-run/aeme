@@ -1,4 +1,4 @@
-import { ensureChannel } from "../channels/channel.ts";
+import { ensureChannel, ensureChannelMember } from "../channels/channel.ts";
 import { ensureUser } from "../users/user.ts";
 import { createSession } from "./session.ts";
 
@@ -21,6 +21,7 @@ export const devLogin = async (env: Env, userKey: DevUserKey = "a") => {
     name: "dev",
     ownerIdIfNew: user.userId,
   });
+  await ensureChannelMember(env, { channelId: DEV_CHANNEL_ID, userId: user.userId });
 
   return createSession(env, { userId: user.userId, channelId: DEV_CHANNEL_ID });
 };
