@@ -9,6 +9,7 @@ import {
   listActivitiesForChannel,
 } from "../activities/activity.ts";
 import { upsertAvailability } from "../activities/availability.ts";
+import { createBooking } from "../activities/booking.ts";
 import { completeLogin } from "../auth/otp.ts";
 import {
   deleteSession,
@@ -16,6 +17,7 @@ import {
   SESSION_COOKIE_NAME,
   setSessionCookie,
 } from "../auth/session.ts";
+import { listChannelMembers } from "../channels/channel.ts";
 
 const loginSchema = z.object({
   otp: z
@@ -62,6 +64,18 @@ const activitySlotSchema = z
 const upsertAvailabilitySchema = z.object({
   slots: z.array(activitySlotSchema),
 });
+
+const createBookingSchema = z
+  .object({
+    date: z.iso.date(),
+    from: z.string().regex(/^\d{2}:\d{2}$/),
+    to: z.string().regex(/^\d{2}:\d{2}$/),
+    attendeeUserIds: z.array(z.string()),
+  })
+  .refine((data) => data.from < data.to, {
+    message: "from must be before to",
+    path: ["to"],
+  });
 
 export const apiRouter = new Hono<{ Bindings: Env }>()
   .get("/session", async (c) => {
@@ -150,6 +164,44 @@ export const apiRouter = new Hono<{ Bindings: Env }>()
     });
 
     return c.json({ availability });
+  })
+  .get("/channels/members", async (c) => {
+    const sessionId = getCookie(c, SESSION_COOKIE_NAME);
+    const session = sessionId ? await getSessionMeta(c.env, sessionId) : null;
+    if (!session) return c.json({ error: "Unauthorized" }, 401);
+
+    const members = await listChannelMembers(c.env, session.channelId);
+    return c.json({ members });
+  })
+  .post("/activities/:id/bookings", zValidator("json", createBookingSchema), async (c) => {
+    const sessionId = getCookie(c, SESSION_COOKIE_NAME);
+    const session = sessionId ? await getSessionMeta(c.env, sessionId) : null;
+    if (!session) return c.json({ error: "Unauthorized" }, 401);
+
+    const activityId = c.req.param("id");
+    const activity = await getActivityById(c.env, activityId);
+    if (!activity || activity.channelId !== session.channelId) {
+      return c.json({ error: "Not found" }, 404);
+    }
+
+    const { date, from, to, attendeeUserIds } = c.req.valid("json");
+
+    const members = await listChannelMembers(c.env, session.channelId);
+    const memberIds = new Set(members.map((member) => member.userId));
+    if (attendeeUserIds.some((userId) => !memberIds.has(userId))) {
+      return c.json({ error: "Attendee is not a member of this channel." }, 400);
+    }
+
+    const booking = await createBooking(c.env, {
+      activityId,
+      createdBy: session.userId,
+      date,
+      from,
+      to,
+      attendeeUserIds,
+    });
+
+    return c.json({ booking });
   });
 
 if (import.meta.env.DEV) {

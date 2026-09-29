@@ -1,11 +1,12 @@
 import { cn } from "cn";
-import { CheckIcon } from "lucide-react";
+import { CheckIcon, PlusIcon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import type { ActivitySlot } from "../../worker/db/schema.ts";
 import { mineWithOthersClass, othersSlotClass } from "../lib/slot-color.ts";
 import type { ActivityWithAvailability } from "../queries/activities.ts";
 import { useUpsertAvailabilityMutation } from "../queries/availability.ts";
+import { AddBookingDialog } from "./AddBookingDialog.tsx";
 import { Button } from "./ui/button.tsx";
 
 const HOURS = Array.from({ length: 16 }, (_, i) => i + 8); // 08:00–23:00, each cell covers one hour
@@ -145,14 +146,30 @@ const ActivityPickerCard = ({ activity, days }: CardProps) => {
         }}
       >
         <div />
-        {days.map((d) => (
-          <div
-            key={toDateStr(d)}
-            className="px-1 pb-2 text-center text-xs font-medium text-muted-foreground"
-          >
-            {formatDayLabel(d)}
-          </div>
-        ))}
+        {days.map((d) => {
+          const dateStr = toDateStr(d);
+          return (
+            <div
+              key={dateStr}
+              className="group relative flex items-center justify-center gap-1 px-1 pb-2 text-center text-xs font-medium text-muted-foreground"
+            >
+              <span>{formatDayLabel(d)}</span>
+              <AddBookingDialog
+                activityId={activity.id}
+                date={dateStr}
+                trigger={
+                  <button
+                    type="button"
+                    aria-label={`Add booking for ${formatDayLabel(d)}`}
+                    className="flex size-4 items-center justify-center rounded-full opacity-0 transition-opacity hover:bg-muted hover:text-foreground group-hover:opacity-100"
+                  >
+                    <PlusIcon className="size-3" />
+                  </button>
+                }
+              />
+            </div>
+          );
+        })}
 
         {activity.slotGranularity === "day" ? (
           <>

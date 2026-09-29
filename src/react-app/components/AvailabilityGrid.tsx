@@ -1,8 +1,10 @@
 import { cn } from "cn";
+import { PlusIcon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import type { ActivitySlot } from "../../worker/db/schema.ts";
 import { mineWithOthersClass, othersSlotClass } from "../lib/slot-color.ts";
+import { AddBookingDialog } from "./AddBookingDialog.tsx";
 import { Button } from "./ui/button.tsx";
 
 const HOURS = Array.from({ length: 16 }, (_, i) => i + 8); // 08:00–23:00, each cell covers one hour
@@ -33,6 +35,7 @@ const formatDayLabel = (d: Date) =>
   d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
 
 type Props = {
+  activityId: string;
   granularity: "day" | "hourly";
   /** Fixed set of candidate dates proposed by the creator; when set, the grid
    * only shows these dates instead of a scrollable rolling window. */
@@ -46,6 +49,7 @@ type Props = {
 };
 
 export const AvailabilityGrid = ({
+  activityId,
   granularity,
   suggestedDates,
   value,
@@ -153,30 +157,45 @@ export const AvailabilityGrid = ({
             const selected = isDaySelected(dateStr);
             const others = othersCount[dateStr] ?? 0;
             return (
-              <button
-                key={dateStr}
-                type="button"
-                disabled={readOnly}
-                onClick={() => toggleDay(dateStr)}
-                className={cn(
-                  "relative flex flex-col items-center rounded-md border border-input px-3 py-2 text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-60",
-                  selected
-                    ? cn(
-                        "border-primary bg-primary text-primary-foreground",
-                        mineWithOthersClass(others),
-                      )
-                    : others > 0
-                      ? othersSlotClass(others)
-                      : "hover:bg-muted",
-                )}
-              >
-                {formatDayLabel(d)}
+              <div key={dateStr} className="group relative">
+                <button
+                  type="button"
+                  disabled={readOnly}
+                  onClick={() => toggleDay(dateStr)}
+                  className={cn(
+                    "flex flex-col items-center rounded-md border border-input px-3 py-2 text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-60",
+                    selected
+                      ? cn(
+                          "border-primary bg-primary text-primary-foreground",
+                          mineWithOthersClass(others),
+                        )
+                      : others > 0
+                        ? othersSlotClass(others)
+                        : "hover:bg-muted",
+                  )}
+                >
+                  {formatDayLabel(d)}
+                </button>
                 {others > 0 && (
                   <span className="absolute -top-1.5 -right-1.5 flex size-4 items-center justify-center rounded-full bg-emerald-900 text-[9px] font-medium text-primary-foreground">
                     {others}
                   </span>
                 )}
-              </button>
+                <AddBookingDialog
+                  activityId={activityId}
+                  date={dateStr}
+                  trigger={
+                    <button
+                      type="button"
+                      onClick={(e) => e.stopPropagation()}
+                      aria-label={`Add booking for ${formatDayLabel(d)}`}
+                      className="absolute -top-1.5 -left-1.5 flex size-4 items-center justify-center rounded-full bg-background text-muted-foreground opacity-0 shadow transition-opacity hover:text-foreground group-hover:opacity-100"
+                    >
+                      <PlusIcon className="size-3" />
+                    </button>
+                  }
+                />
+              </div>
             );
           })}
         </div>
@@ -186,11 +205,30 @@ export const AvailabilityGrid = ({
           style={{ gridTemplateColumns: `auto repeat(${days.length}, minmax(3rem, 1fr))` }}
         >
           <div />
-          {days.map((d) => (
-            <div key={toDateStr(d)} className="px-1 pb-1 text-center text-xs text-muted-foreground">
-              {formatDayLabel(d)}
-            </div>
-          ))}
+          {days.map((d) => {
+            const dateStr = toDateStr(d);
+            return (
+              <div
+                key={dateStr}
+                className="group relative flex items-center justify-center gap-1 px-1 pb-1 text-center text-xs text-muted-foreground"
+              >
+                <span>{formatDayLabel(d)}</span>
+                <AddBookingDialog
+                  activityId={activityId}
+                  date={dateStr}
+                  trigger={
+                    <button
+                      type="button"
+                      aria-label={`Add booking for ${formatDayLabel(d)}`}
+                      className="flex size-4 items-center justify-center rounded-full opacity-0 transition-opacity hover:bg-muted hover:text-foreground group-hover:opacity-100"
+                    >
+                      <PlusIcon className="size-3" />
+                    </button>
+                  }
+                />
+              </div>
+            );
+          })}
 
           {HOURS.map((hour) => (
             <div key={hour} className="contents">

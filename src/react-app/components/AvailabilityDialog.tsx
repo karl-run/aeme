@@ -52,6 +52,7 @@ export const AvailabilityDialog = ({ activity }: Props) => {
         </DialogHeader>
 
         <AvailabilityGrid
+          activityId={activity.id}
           granularity={activity.slotGranularity}
           suggestedDates={activity.suggestedDates}
           value={slots}

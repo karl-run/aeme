@@ -91,3 +91,45 @@ export const activityAvailabilityTable = sqliteTable(
   },
   (t) => [uniqueIndex("activity_availability_activity_user").on(t.activityId, t.userId)],
 );
+
+/** An actual booked occurrence of an activity — as opposed to `activity_availability`,
+ * which only records when users say they *could* meet. Any user in the channel can
+ * add one. Persistent activities may accrue many bookings over time; non-persistent
+ * (one-off) activities will typically end up with just the one. */
+export const activityBookingsTable = sqliteTable(
+  "activity_bookings",
+  {
+    id: text().primaryKey(),
+    activityId: text("activity_id")
+      .notNull()
+      .references(() => activitiesTable.id),
+    createdBy: text("created_by")
+      .notNull()
+      .references(() => usersTable.userId),
+    date: text().notNull(),
+    from: text().notNull(),
+    to: text().notNull(),
+    created: text().notNull(),
+  },
+  (t) => [
+    check(
+      "activity_bookings_time_format",
+      sql`${t.from} GLOB '[0-2][0-9]:[0-5][0-9]' AND ${t.to} GLOB '[0-2][0-9]:[0-5][0-9]'`,
+    ),
+    check("activity_bookings_from_before_to", sql`${t.from} < ${t.to}`),
+  ],
+);
+
+export const activityBookingAttendeesTable = sqliteTable(
+  "activity_booking_attendees",
+  {
+    id: text().primaryKey(),
+    bookingId: text("booking_id")
+      .notNull()
+      .references(() => activityBookingsTable.id),
+    userId: text("user_id")
+      .notNull()
+      .references(() => usersTable.userId),
+  },
+  (t) => [uniqueIndex("activity_booking_attendees_booking_user").on(t.bookingId, t.userId)],
+);

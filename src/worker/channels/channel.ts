@@ -1,5 +1,7 @@
+import { eq } from "drizzle-orm";
+
 import { createDb } from "../db/db.ts";
-import { channelsTable } from "../db/schema.ts";
+import { channelsTable, sessionsTable, usersTable } from "../db/schema.ts";
 
 export const ensureChannel = async (
   env: Env,
@@ -16,4 +18,19 @@ export const ensureChannel = async (
       created: new Date().toISOString(),
     })
     .onConflictDoNothing({ target: channelsTable.channelId });
+};
+
+/** Users "known" to a channel, i.e. anyone who has ever logged into æme from
+ * it — there's no separate Slack-synced membership list. */
+export const listChannelMembers = async (env: Env, channelId: string) => {
+  const db = createDb(env);
+
+  const rows = await db
+    .selectDistinct({ userId: usersTable.userId, name: usersTable.name })
+    .from(sessionsTable)
+    .innerJoin(usersTable, eq(usersTable.userId, sessionsTable.userId))
+    .where(eq(sessionsTable.channelId, channelId))
+    .orderBy(usersTable.name);
+
+  return rows;
 };
