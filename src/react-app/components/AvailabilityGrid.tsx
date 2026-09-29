@@ -3,8 +3,11 @@ import { PlusIcon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import type { ActivitySlot } from "../../worker/db/schema.ts";
-import { mineWithOthersClass, othersSlotClass } from "../lib/slot-color.ts";
+import { bookingsForDay, bookingsForHour } from "../lib/booking-slots.ts";
+import { bookedSlotOverlayClass, mineWithOthersClass, othersSlotClass } from "../lib/slot-color.ts";
+import type { ActivityWithAvailability } from "../queries/activities.ts";
 import { AddBookingDialog } from "./AddBookingDialog.tsx";
+import { BookingInfoPopover } from "./BookingInfoPopover.tsx";
 import { Button } from "./ui/button.tsx";
 
 const HOURS = Array.from({ length: 16 }, (_, i) => i + 8); // 08:00–23:00, each cell covers one hour
@@ -46,6 +49,10 @@ type Props = {
   /** Count of other users who picked each slot, keyed by `date` (day
    * granularity) or `date|hour` (hourly granularity). */
   othersCount?: Record<string, number>;
+  /** Whether each slot has an actual booking, keyed the same way as
+   * `othersCount`. */
+  bookedSlots?: Record<string, boolean>;
+  bookings?: ActivityWithAvailability["bookings"];
 };
 
 export const AvailabilityGrid = ({
@@ -56,6 +63,8 @@ export const AvailabilityGrid = ({
   onChange,
   readOnly = false,
   othersCount = {},
+  bookedSlots = {},
+  bookings = [],
 }: Props) => {
   const today = startOfDay(new Date());
 
@@ -156,6 +165,7 @@ export const AvailabilityGrid = ({
             const dateStr = toDateStr(d);
             const selected = isDaySelected(dateStr);
             const others = othersCount[dateStr] ?? 0;
+            const booked = bookedSlots[dateStr] ?? false;
             return (
               <div key={dateStr} className="group relative">
                 <button
@@ -175,11 +185,18 @@ export const AvailabilityGrid = ({
                   )}
                 >
                   {formatDayLabel(d)}
+                  {booked && <div className={bookedSlotOverlayClass()} />}
                 </button>
                 {others > 0 && (
                   <span className="absolute -top-1.5 -right-1.5 flex size-4 items-center justify-center rounded-full bg-emerald-900 text-[9px] font-medium text-primary-foreground">
                     {others}
                   </span>
+                )}
+                {booked && (
+                  <BookingInfoPopover
+                    bookings={bookingsForDay(bookings, dateStr)}
+                    className="absolute -bottom-2 -right-2"
+                  />
                 )}
                 <AddBookingDialog
                   activityId={activityId}
@@ -189,9 +206,9 @@ export const AvailabilityGrid = ({
                       type="button"
                       onClick={(e) => e.stopPropagation()}
                       aria-label={`Add booking for ${formatDayLabel(d)}`}
-                      className="absolute -top-1.5 -left-1.5 flex size-4 items-center justify-center rounded-full bg-background text-muted-foreground opacity-0 shadow transition-opacity hover:text-foreground group-hover:opacity-100"
+                      className="absolute -top-2 -left-2 flex size-6 items-center justify-center rounded-full bg-background text-muted-foreground opacity-0 shadow transition-opacity hover:text-foreground group-hover:opacity-100"
                     >
-                      <PlusIcon className="size-3" />
+                      <PlusIcon className="size-4" />
                     </button>
                   }
                 />
@@ -220,9 +237,9 @@ export const AvailabilityGrid = ({
                     <button
                       type="button"
                       aria-label={`Add booking for ${formatDayLabel(d)}`}
-                      className="flex size-4 items-center justify-center rounded-full opacity-0 transition-opacity hover:bg-muted hover:text-foreground group-hover:opacity-100"
+                      className="flex size-6 items-center justify-center rounded-full opacity-0 transition-opacity hover:bg-muted hover:text-foreground group-hover:opacity-100"
                     >
-                      <PlusIcon className="size-3" />
+                      <PlusIcon className="size-4" />
                     </button>
                   }
                 />
@@ -239,6 +256,9 @@ export const AvailabilityGrid = ({
                 const dateStr = toDateStr(d);
                 const selected = hourSetForDate(dateStr).has(hour);
                 const others = othersCount[`${dateStr}|${hour}`] ?? 0;
+                const booked = bookedSlots[`${dateStr}|${hour}`] ?? false;
+                const bookedAbove = bookedSlots[`${dateStr}|${hour - 1}`] ?? false;
+                const bookedBelow = bookedSlots[`${dateStr}|${hour + 1}`] ?? false;
                 return (
                   <div
                     key={dateStr + hour}
@@ -253,7 +273,7 @@ export const AvailabilityGrid = ({
                       setHour(dateStr, hour, dragValueRef.current);
                     }}
                     className={cn(
-                      "flex h-6 items-center justify-center border border-border/50",
+                      "relative flex h-6 items-center justify-center border border-border/50",
                       readOnly ? "cursor-not-allowed" : "cursor-pointer hover:bg-muted",
                       selected
                         ? cn("bg-primary", mineWithOthersClass(others))
@@ -264,6 +284,20 @@ export const AvailabilityGrid = ({
                       <span className="text-[9px] font-medium text-primary-foreground">
                         {others}
                       </span>
+                    )}
+                    {booked && (
+                      <div
+                        className={bookedSlotOverlayClass({
+                          top: !bookedAbove,
+                          bottom: !bookedBelow,
+                        })}
+                      />
+                    )}
+                    {booked && !bookedAbove && (
+                      <BookingInfoPopover
+                        bookings={bookingsForHour(bookings, dateStr, hour)}
+                        className="absolute top-0 right-0"
+                      />
                     )}
                   </div>
                 );

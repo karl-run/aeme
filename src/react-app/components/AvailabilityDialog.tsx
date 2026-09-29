@@ -59,6 +59,8 @@ export const AvailabilityDialog = ({ activity }: Props) => {
           onChange={setSlots}
           readOnly={closed}
           othersCount={activity.othersCount}
+          bookedSlots={activity.bookedSlots}
+          bookings={activity.bookings}
         />
 
         <DialogFooter>

@@ -1,5 +1,6 @@
 import type { ActivityWithAvailability } from "../queries/activities.ts";
 import { AvailabilityDialog } from "./AvailabilityDialog.tsx";
+import { UpcomingBookings } from "./UpcomingBookings.tsx";
 
 const summarize = (activity: ActivityWithAvailability) => {
   if (activity.slots.length === 0) return "Not answered yet";
@@ -26,7 +27,7 @@ type Props = {
 export const ActivityCard = ({ activity }: Props) => (
   <div className="flex w-full flex-col gap-3 rounded-lg border border-border bg-card p-4">
     <div className="flex items-start justify-between gap-4">
-      <div>
+      <div className="min-w-0">
         <h3 className="font-medium">{activity.title}</h3>
         {activity.description && (
           <p className="text-sm text-muted-foreground">{activity.description}</p>
@@ -37,11 +38,14 @@ export const ActivityCard = ({ activity }: Props) => (
           </p>
         )}
       </div>
-      {activity.endTime && (
-        <span className="whitespace-nowrap text-xs text-muted-foreground">
-          Respond by {formatDeadline(activity.endTime)}
-        </span>
-      )}
+      <div className="flex min-w-0 flex-col items-end gap-2">
+        {activity.endTime && (
+          <span className="text-xs whitespace-nowrap text-muted-foreground">
+            Respond by {formatDeadline(activity.endTime)}
+          </span>
+        )}
+        <UpcomingBookings bookings={activity.bookings} />
+      </div>
     </div>
 
     <div className="flex items-center justify-between gap-4">

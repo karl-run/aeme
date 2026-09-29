@@ -3,11 +3,14 @@ import { CheckIcon, PlusIcon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import type { ActivitySlot } from "../../worker/db/schema.ts";
-import { mineWithOthersClass, othersSlotClass } from "../lib/slot-color.ts";
+import { bookingsForDay, bookingsForHour } from "../lib/booking-slots.ts";
+import { bookedSlotOverlayClass, mineWithOthersClass, othersSlotClass } from "../lib/slot-color.ts";
 import type { ActivityWithAvailability } from "../queries/activities.ts";
 import { useUpsertAvailabilityMutation } from "../queries/availability.ts";
 import { AddBookingDialog } from "./AddBookingDialog.tsx";
+import { BookingInfoPopover } from "./BookingInfoPopover.tsx";
 import { Button } from "./ui/button.tsx";
+import { UpcomingBookings } from "./UpcomingBookings.tsx";
 
 const HOURS = Array.from({ length: 16 }, (_, i) => i + 8); // 08:00–23:00, each cell covers one hour
 const MIN_VISIBLE_DAYS = 7;
@@ -131,13 +134,18 @@ const ActivityPickerCard = ({ activity, days }: CardProps) => {
 
   return (
     <div className="flex flex-col gap-3 rounded-lg border border-border bg-card p-4">
-      <div className="flex items-center gap-2">
-        <h3 className="font-semibold">{activity.title}</h3>
-        {status && <span className="text-xs text-muted-foreground">{status}</span>}
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex min-w-0 flex-col gap-1">
+          <div className="flex items-center gap-2">
+            <h3 className="font-semibold">{activity.title}</h3>
+            {status && <span className="text-xs text-muted-foreground">{status}</span>}
+          </div>
+          {activity.description && (
+            <p className="text-sm text-muted-foreground">{activity.description}</p>
+          )}
+        </div>
+        <UpcomingBookings bookings={activity.bookings} />
       </div>
-      {activity.description && (
-        <p className="-mt-2 text-sm text-muted-foreground">{activity.description}</p>
-      )}
 
       <div
         className="grid w-full select-none overflow-x-auto"
@@ -161,9 +169,9 @@ const ActivityPickerCard = ({ activity, days }: CardProps) => {
                   <button
                     type="button"
                     aria-label={`Add booking for ${formatDayLabel(d)}`}
-                    className="flex size-4 items-center justify-center rounded-full opacity-0 transition-opacity hover:bg-muted hover:text-foreground group-hover:opacity-100"
+                    className="flex size-6 items-center justify-center rounded-full opacity-0 transition-opacity hover:bg-muted hover:text-foreground group-hover:opacity-100"
                   >
-                    <PlusIcon className="size-3" />
+                    <PlusIcon className="size-4" />
                   </button>
                 }
               />
@@ -178,36 +186,45 @@ const ActivityPickerCard = ({ activity, days }: CardProps) => {
               const dateStr = toDateStr(d);
               const selected = isDaySelected(dateStr);
               const others = activity.othersCount[dateStr] ?? 0;
+              const booked = activity.bookedSlots[dateStr] ?? false;
               return (
-                <button
-                  key={dateStr}
-                  type="button"
-                  onClick={() => toggleDay(dateStr)}
-                  className={cn(
-                    "group relative flex h-8 items-center justify-center rounded-sm border transition-colors",
-                    selected
-                      ? cn(
-                          "border-primary bg-primary text-primary-foreground",
-                          mineWithOthersClass(others),
-                        )
-                      : others > 0
-                        ? othersSlotClass(others)
-                        : "border-dashed border-muted-foreground/30 hover:border-primary/60 hover:bg-muted",
-                  )}
-                >
-                  {selected ? (
-                    <CheckIcon className="size-4" />
-                  ) : others === 0 ? (
-                    <span className="text-[10px] font-medium text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100">
-                      æme!
-                    </span>
-                  ) : null}
+                <div key={dateStr} className="group relative rounded-sm">
+                  <button
+                    type="button"
+                    onClick={() => toggleDay(dateStr)}
+                    className={cn(
+                      "flex h-8 w-full items-center justify-center rounded-sm border transition-colors",
+                      selected
+                        ? cn(
+                            "border-primary bg-primary text-primary-foreground",
+                            mineWithOthersClass(others),
+                          )
+                        : others > 0
+                          ? othersSlotClass(others)
+                          : "border-dashed border-muted-foreground/30 hover:border-primary/60 hover:bg-muted",
+                    )}
+                  >
+                    {selected ? (
+                      <CheckIcon className="size-4" />
+                    ) : others === 0 ? (
+                      <span className="text-[10px] font-medium text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100">
+                        æme!
+                      </span>
+                    ) : null}
+                  </button>
                   {others > 0 && (
                     <span className="absolute -top-1.5 -right-1.5 flex size-4 items-center justify-center rounded-full bg-emerald-900 text-[9px] font-medium text-primary-foreground">
                       {others}
                     </span>
                   )}
-                </button>
+                  {booked && <div className={bookedSlotOverlayClass()} />}
+                  {booked && (
+                    <BookingInfoPopover
+                      bookings={bookingsForDay(activity.bookings, dateStr)}
+                      className="absolute -bottom-2 -right-2"
+                    />
+                  )}
+                </div>
               );
             })}
           </>
@@ -221,6 +238,9 @@ const ActivityPickerCard = ({ activity, days }: CardProps) => {
                 const dateStr = toDateStr(d);
                 const selected = hourSetForDate(slots, dateStr).has(hour);
                 const others = activity.othersCount[`${dateStr}|${hour}`] ?? 0;
+                const booked = activity.bookedSlots[`${dateStr}|${hour}`] ?? false;
+                const bookedAbove = activity.bookedSlots[`${dateStr}|${hour - 1}`] ?? false;
+                const bookedBelow = activity.bookedSlots[`${dateStr}|${hour + 1}`] ?? false;
                 return (
                   <div
                     key={dateStr + hour}
@@ -252,6 +272,20 @@ const ActivityPickerCard = ({ activity, days }: CardProps) => {
                           æme!
                         </span>
                       )
+                    )}
+                    {booked && (
+                      <div
+                        className={bookedSlotOverlayClass({
+                          top: !bookedAbove,
+                          bottom: !bookedBelow,
+                        })}
+                      />
+                    )}
+                    {booked && !bookedAbove && (
+                      <BookingInfoPopover
+                        bookings={bookingsForHour(activity.bookings, dateStr, hour)}
+                        className="absolute top-0 right-0"
+                      />
                     )}
                   </div>
                 );

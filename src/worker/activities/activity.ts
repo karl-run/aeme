@@ -1,7 +1,14 @@
 import { and, eq, inArray } from "drizzle-orm";
 
 import { createDb } from "../db/db.ts";
-import { activitiesTable, activityAvailabilityTable, type ActivitySlot } from "../db/schema.ts";
+import {
+  activitiesTable,
+  activityAvailabilityTable,
+  activityBookingAttendeesTable,
+  activityBookingsTable,
+  type ActivitySlot,
+  usersTable,
+} from "../db/schema.ts";
 
 /** Key for a slot in an `othersCount` map: the date alone for day-granularity
  * activities, or `date|hour` per hour covered by an hourly slot. */
@@ -103,9 +110,64 @@ export const listActivitiesForChannel = async (env: Env, channelId: string, user
     othersCountByActivity.set(row.activityId, counts);
   }
 
+  const bookingRows = activityIds.length
+    ? await db
+        .select({
+          id: activityBookingsTable.id,
+          activityId: activityBookingsTable.activityId,
+          date: activityBookingsTable.date,
+          from: activityBookingsTable.from,
+          to: activityBookingsTable.to,
+          createdByName: usersTable.name,
+        })
+        .from(activityBookingsTable)
+        .innerJoin(usersTable, eq(usersTable.userId, activityBookingsTable.createdBy))
+        .where(inArray(activityBookingsTable.activityId, activityIds))
+    : [];
+
+  const bookingIds = bookingRows.map((booking) => booking.id);
+  const attendeeRows = bookingIds.length
+    ? await db
+        .select({
+          bookingId: activityBookingAttendeesTable.bookingId,
+          name: usersTable.name,
+        })
+        .from(activityBookingAttendeesTable)
+        .innerJoin(usersTable, eq(usersTable.userId, activityBookingAttendeesTable.userId))
+        .where(inArray(activityBookingAttendeesTable.bookingId, bookingIds))
+    : [];
+
+  const attendeeNamesByBooking = new Map<string, string[]>();
+  for (const row of attendeeRows) {
+    const names = attendeeNamesByBooking.get(row.bookingId) ?? [];
+    names.push(row.name);
+    attendeeNamesByBooking.set(row.bookingId, names);
+  }
+
+  const bookedSlotsByActivity = new Map<string, Record<string, boolean>>();
+  const bookingsByActivity = new Map<string, typeof bookingRows>();
+  for (const booking of bookingRows) {
+    const booked = bookedSlotsByActivity.get(booking.activityId) ?? {};
+    for (const key of slotCountKeys(booking)) booked[key] = true;
+    bookedSlotsByActivity.set(booking.activityId, booked);
+
+    const list = bookingsByActivity.get(booking.activityId) ?? [];
+    list.push(booking);
+    bookingsByActivity.set(booking.activityId, list);
+  }
+
   return rows.map((row) => ({
     ...row,
     slots: row.slots ?? [],
     othersCount: othersCountByActivity.get(row.id) ?? {},
+    bookedSlots: bookedSlotsByActivity.get(row.id) ?? {},
+    bookings: (bookingsByActivity.get(row.id) ?? []).map((booking) => ({
+      id: booking.id,
+      date: booking.date,
+      from: booking.from,
+      to: booking.to,
+      createdByName: booking.createdByName,
+      attendeeNames: attendeeNamesByBooking.get(booking.id) ?? [],
+    })),
   }));
 };
