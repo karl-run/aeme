@@ -5,7 +5,7 @@ const STORAGE_KEY = "aeme:dev-fake-session";
 const FAKE_SESSION: SessionMeta = {
   userId: "dev-user",
   userName: "Dev User",
-  channelId: "dev-channel",
+  channelId: "C0C3KKW19MK",
   channelName: "dev",
   expires: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
 };

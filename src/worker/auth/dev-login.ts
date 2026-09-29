@@ -2,7 +2,7 @@ import { ensureChannel } from "../channels/channel.ts";
 import { ensureUser } from "../users/user.ts";
 import { createSession } from "./session.ts";
 
-const DEV_CHANNEL_ID = "dev-channel";
+const DEV_CHANNEL_ID = "C0C3KKW19MK";
 
 export const DEV_USERS = {
   a: { userId: "dev-user", name: "Dev User A" },

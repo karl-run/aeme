@@ -194,6 +194,8 @@ export const apiRouter = new Hono<{ Bindings: Env }>()
 
     const booking = await createBooking(c.env, {
       activityId,
+      activityTitle: activity.title,
+      activityChannelId: activity.channelId,
       createdBy: session.userId,
       date,
       from,
