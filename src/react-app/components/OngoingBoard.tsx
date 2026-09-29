@@ -20,8 +20,10 @@ import { UpcomingBookings } from "./UpcomingBookings.tsx";
 const HOURS = Array.from({ length: 16 }, (_, i) => i + 8); // 08:00–23:00, each cell covers one hour
 const MIN_VISIBLE_DAYS = 7;
 const LABEL_COLUMN_PX = 64; // 4rem
+const DAY_COLUMN_MIN_PX = 72; // 4.5rem — must fit a nowrap date label without overlapping neighbors
 const DAY_COLUMN_MAX_PX = 80; // 5rem
 const CARD_INSET_PX = 34; // card padding + border, subtracted when fitting day columns
+const HOUR_CELL_PX = 24; // h-6
 const SAVE_DEBOUNCE_MS = 600;
 
 const toDateStr = (d: Date) => {
@@ -153,34 +155,35 @@ const ActivityPickerCard = ({ activity, days }: CardProps) => {
       </div>
 
       <div
-        className="grid w-full select-none overflow-x-auto"
+        className="-m-3 grid w-full select-none overflow-x-auto p-3"
         style={{
-          gridTemplateColumns: `${LABEL_COLUMN_PX}px repeat(${days.length}, minmax(3rem, ${DAY_COLUMN_MAX_PX}px))`,
+          gridTemplateColumns: `${LABEL_COLUMN_PX}px repeat(${days.length}, minmax(${DAY_COLUMN_MIN_PX}px, ${DAY_COLUMN_MAX_PX}px))`,
         }}
       >
         <div />
         {days.map((d) => {
           const dateStr = toDateStr(d);
           return (
-            <div
+            <AddBookingDialog
               key={dateStr}
-              className="group relative flex items-center justify-center gap-1 px-1 pb-2 text-center text-xs font-medium text-muted-foreground"
-            >
-              <span>{formatDayLabel(d)}</span>
-              <AddBookingDialog
-                activityId={activity.id}
-                date={dateStr}
-                trigger={
-                  <button
-                    type="button"
-                    aria-label={`Add booking for ${formatDayLabel(d)}`}
-                    className="flex size-6 items-center justify-center rounded-full opacity-0 transition-opacity hover:bg-muted hover:text-foreground group-hover:opacity-100"
-                  >
+              activityId={activity.id}
+              date={dateStr}
+              trigger={
+                <button
+                  type="button"
+                  aria-label={`Add booking for ${formatDayLabel(d)}`}
+                  className="group relative grid w-full place-items-center px-1 pb-2 text-center text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
+                >
+                  <span className="col-start-1 row-start-1 whitespace-nowrap transition-opacity group-hover:opacity-0">
+                    {formatDayLabel(d)}
+                  </span>
+                  <span className="col-start-1 row-start-1 flex items-center gap-1 whitespace-nowrap opacity-0 transition-opacity group-hover:opacity-100">
                     <PlusIcon className="size-4" />
-                  </button>
-                }
-              />
-            </div>
+                    Book
+                  </span>
+                </button>
+              }
+            />
           );
         })}
 
@@ -218,7 +221,7 @@ const ActivityPickerCard = ({ activity, days }: CardProps) => {
                     ) : null}
                   </button>
                   {others > 0 && (
-                    <span className="absolute -top-1.5 -right-1.5 flex size-4 items-center justify-center rounded-full bg-emerald-900 text-[9px] font-medium text-primary-foreground">
+                    <span className="absolute -top-1.5 -left-1.5 flex size-4 items-center justify-center rounded-full bg-emerald-900 text-[9px] font-medium text-primary-foreground">
                       {others}
                     </span>
                   )}
@@ -226,7 +229,7 @@ const ActivityPickerCard = ({ activity, days }: CardProps) => {
                   {booked && (
                     <BookingInfoPopover
                       bookings={bookingsForDay(activity.bookings, dateStr)}
-                      className="absolute -bottom-2 -right-2"
+                      className="absolute -bottom-2 -left-2"
                     />
                   )}
                 </div>
@@ -237,7 +240,7 @@ const ActivityPickerCard = ({ activity, days }: CardProps) => {
           <div
             className="col-span-full grid"
             style={{
-              gridTemplateColumns: `${LABEL_COLUMN_PX}px repeat(${days.length}, minmax(3rem, ${DAY_COLUMN_MAX_PX}px))`,
+              gridTemplateColumns: `${LABEL_COLUMN_PX}px repeat(${days.length}, minmax(${DAY_COLUMN_MIN_PX}px, ${DAY_COLUMN_MAX_PX}px))`,
             }}
           >
             <div className="flex flex-col">
@@ -254,7 +257,11 @@ const ActivityPickerCard = ({ activity, days }: CardProps) => {
             {days.map((d) => {
               const dateStr = toDateStr(d);
               return (
-                <div key={dateStr} className="relative flex flex-col">
+                <div
+                  key={dateStr}
+                  className="relative flex flex-col"
+                  style={{ height: HOURS.length * HOUR_CELL_PX }}
+                >
                   {HOURS.map((hour) => {
                     const selected = hourSetForDate(slots, dateStr).has(hour);
                     const others = activity.othersCount[`${dateStr}|${hour}`] ?? 0;
@@ -302,7 +309,7 @@ const ActivityPickerCard = ({ activity, days }: CardProps) => {
                     >
                       <BookingInfoPopover
                         bookings={[booking]}
-                        className="absolute -top-2 -right-2"
+                        className="absolute -top-2 -left-2"
                       />
                     </div>
                   ))}

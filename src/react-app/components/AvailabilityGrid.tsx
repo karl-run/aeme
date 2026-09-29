@@ -17,6 +17,8 @@ import { Button } from "./ui/button.tsx";
 
 const HOURS = Array.from({ length: 16 }, (_, i) => i + 8); // 08:00–23:00, each cell covers one hour
 const WINDOW_DAYS = 7;
+const DAY_COLUMN_MIN_PX = 72; // 4.5rem — must fit a nowrap date label without overlapping neighbors
+const HOUR_CELL_PX = 24; // h-6
 
 const toDateStr = (d: Date) => {
   const y = d.getFullYear();
@@ -172,7 +174,7 @@ export const AvailabilityGrid = ({
             const others = othersCount[dateStr] ?? 0;
             const booked = bookedSlots[dateStr] ?? false;
             return (
-              <div key={dateStr} className="group relative">
+              <div key={dateStr} className="group relative hover:z-10">
                 <button
                   type="button"
                   disabled={readOnly}
@@ -193,14 +195,14 @@ export const AvailabilityGrid = ({
                   {booked && <div className={bookedSlotOverlayClass} />}
                 </button>
                 {others > 0 && (
-                  <span className="absolute -top-1.5 -right-1.5 flex size-4 items-center justify-center rounded-full bg-emerald-900 text-[9px] font-medium text-primary-foreground">
+                  <span className="absolute -top-1.5 -left-1.5 flex size-4 items-center justify-center rounded-full bg-emerald-900 text-[9px] font-medium text-primary-foreground">
                     {others}
                   </span>
                 )}
                 {booked && (
                   <BookingInfoPopover
                     bookings={bookingsForDay(bookings, dateStr)}
-                    className="absolute -bottom-2 -right-2"
+                    className="absolute -bottom-2 -left-2"
                   />
                 )}
                 <AddBookingDialog
@@ -211,7 +213,7 @@ export const AvailabilityGrid = ({
                       type="button"
                       onClick={(e) => e.stopPropagation()}
                       aria-label={`Add booking for ${formatDayLabel(d)}`}
-                      className="absolute -top-2 -left-2 flex size-6 items-center justify-center rounded-full bg-background text-muted-foreground opacity-0 shadow transition-opacity hover:text-foreground group-hover:opacity-100"
+                      className="absolute -top-2 -right-2 flex size-6 items-center justify-center rounded-full bg-background text-muted-foreground opacity-0 shadow transition-opacity hover:text-foreground group-hover:opacity-100"
                     >
                       <PlusIcon className="size-4" />
                     </button>
@@ -223,32 +225,35 @@ export const AvailabilityGrid = ({
         </div>
       ) : (
         <div
-          className="grid select-none overflow-x-auto"
-          style={{ gridTemplateColumns: `auto repeat(${days.length}, minmax(3rem, 1fr))` }}
+          className="-m-3 grid select-none overflow-x-auto p-3"
+          style={{
+            gridTemplateColumns: `auto repeat(${days.length}, minmax(${DAY_COLUMN_MIN_PX}px, 1fr))`,
+          }}
         >
           <div />
           {days.map((d) => {
             const dateStr = toDateStr(d);
             return (
-              <div
+              <AddBookingDialog
                 key={dateStr}
-                className="group relative flex items-center justify-center gap-1 px-1 pb-1 text-center text-xs text-muted-foreground"
-              >
-                <span>{formatDayLabel(d)}</span>
-                <AddBookingDialog
-                  activityId={activityId}
-                  date={dateStr}
-                  trigger={
-                    <button
-                      type="button"
-                      aria-label={`Add booking for ${formatDayLabel(d)}`}
-                      className="flex size-6 items-center justify-center rounded-full opacity-0 transition-opacity hover:bg-muted hover:text-foreground group-hover:opacity-100"
-                    >
+                activityId={activityId}
+                date={dateStr}
+                trigger={
+                  <button
+                    type="button"
+                    aria-label={`Add booking for ${formatDayLabel(d)}`}
+                    className="group relative grid w-full place-items-center px-1 pb-1 text-center text-xs text-muted-foreground transition-colors hover:text-foreground"
+                  >
+                    <span className="col-start-1 row-start-1 whitespace-nowrap transition-opacity group-hover:opacity-0">
+                      {formatDayLabel(d)}
+                    </span>
+                    <span className="col-start-1 row-start-1 flex items-center gap-1 whitespace-nowrap opacity-0 transition-opacity group-hover:opacity-100">
                       <PlusIcon className="size-4" />
-                    </button>
-                  }
-                />
-              </div>
+                      Book
+                    </span>
+                  </button>
+                }
+              />
             );
           })}
 
@@ -266,7 +271,11 @@ export const AvailabilityGrid = ({
           {days.map((d) => {
             const dateStr = toDateStr(d);
             return (
-              <div key={dateStr} className="relative flex flex-col">
+              <div
+                key={dateStr}
+                className="relative flex flex-col"
+                style={{ height: HOURS.length * HOUR_CELL_PX }}
+              >
                 {HOURS.map((hour) => {
                   const selected = hourSetForDate(dateStr).has(hour);
                   const others = othersCount[`${dateStr}|${hour}`] ?? 0;
@@ -306,7 +315,7 @@ export const AvailabilityGrid = ({
                     className={bookingOverlayClass}
                     style={bookingOverlayPercent(booking, HOURS)}
                   >
-                    <BookingInfoPopover bookings={[booking]} className="absolute -top-2 -right-2" />
+                    <BookingInfoPopover bookings={[booking]} className="absolute -top-2 -left-2" />
                   </div>
                 ))}
               </div>
