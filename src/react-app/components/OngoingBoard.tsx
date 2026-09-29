@@ -11,6 +11,7 @@ const HOURS = Array.from({ length: 16 }, (_, i) => i + 8); // 08:00–23:00, eac
 const MIN_VISIBLE_DAYS = 7;
 const LABEL_COLUMN_PX = 64; // 4rem
 const DAY_COLUMN_MAX_PX = 80; // 5rem
+const CARD_INSET_PX = 34; // card padding + border, subtracted when fitting day columns
 const SAVE_DEBOUNCE_MS = 600;
 
 const toDateStr = (d: Date) => {
@@ -68,14 +69,12 @@ const collapseHours = (dateStr: string, hours: Set<number>): ActivitySlot[] => {
   return ranges;
 };
 
-type RowProps = {
+type CardProps = {
   activity: ActivityWithAvailability;
   days: Date[];
 };
 
-/** Renders as `display: contents` so its cells land directly in the parent
- * board's grid, keeping day/hour columns aligned across every activity. */
-const PersistentActivityRows = ({ activity, days }: RowProps) => {
+const ActivityPickerCard = ({ activity, days }: CardProps) => {
   const [slots, setSlots] = useState<ActivitySlot[]>(activity.slots);
   const upsertAvailability = useUpsertAvailabilityMutation();
 
@@ -128,68 +127,101 @@ const PersistentActivityRows = ({ activity, days }: RowProps) => {
       ? "Failed to save"
       : null;
 
-  if (activity.slotGranularity === "day") {
-    return (
-      <div className="contents">
-        <div className="col-span-full flex items-center gap-2 border-t border-border pt-3 pb-1">
-          <span className="font-medium">{activity.title}</span>
-          {status && <span className="text-xs text-muted-foreground">{status}</span>}
-        </div>
-        <div />
-        {days.map((d) => {
-          const dateStr = toDateStr(d);
-          const selected = isDaySelected(dateStr);
-          return (
-            <button
-              key={dateStr}
-              type="button"
-              onClick={() => toggleDay(dateStr)}
-              className={cn(
-                "flex h-8 items-center justify-center transition-colors",
-                selected ? "bg-primary text-primary-foreground" : "hover:bg-muted",
-              )}
-            >
-              {selected && <CheckIcon className="size-4" />}
-            </button>
-          );
-        })}
-      </div>
-    );
-  }
-
   return (
-    <div className="contents">
-      <div className="col-span-full flex items-center gap-2 border-t border-border pt-3 pb-1">
-        <span className="font-medium">{activity.title}</span>
+    <div className="flex flex-col gap-3 rounded-lg border border-border bg-card p-4">
+      <div className="flex items-center gap-2">
+        <h3 className="font-semibold">{activity.title}</h3>
         {status && <span className="text-xs text-muted-foreground">{status}</span>}
       </div>
+      {activity.description && (
+        <p className="-mt-2 text-sm text-muted-foreground">{activity.description}</p>
+      )}
 
-      {HOURS.map((hour) => (
-        <div key={hour} className="contents">
-          <div className="pr-2 text-right text-xs text-muted-foreground">{formatHour(hour)}</div>
-          {days.map((d) => {
-            const dateStr = toDateStr(d);
-            const selected = hourSetForDate(slots, dateStr).has(hour);
-            return (
-              <div
-                key={dateStr + hour}
-                onPointerDown={() => {
-                  const next = !selected;
-                  dragValueRef.current = next;
-                  setHour(dateStr, hour, next);
-                }}
-                onPointerEnter={() => {
-                  if (dragValueRef.current !== null) setHour(dateStr, hour, dragValueRef.current);
-                }}
-                className={cn(
-                  "h-6 cursor-pointer border border-border/50",
-                  selected ? "bg-primary" : "hover:bg-muted",
-                )}
-              />
-            );
-          })}
-        </div>
-      ))}
+      <div
+        className="grid w-full select-none overflow-x-auto"
+        style={{
+          gridTemplateColumns: `${LABEL_COLUMN_PX}px repeat(${days.length}, minmax(3rem, ${DAY_COLUMN_MAX_PX}px))`,
+        }}
+      >
+        <div />
+        {days.map((d) => (
+          <div
+            key={toDateStr(d)}
+            className="px-1 pb-2 text-center text-xs font-medium text-muted-foreground"
+          >
+            {formatDayLabel(d)}
+          </div>
+        ))}
+
+        {activity.slotGranularity === "day" ? (
+          <>
+            <div />
+            {days.map((d) => {
+              const dateStr = toDateStr(d);
+              const selected = isDaySelected(dateStr);
+              return (
+                <button
+                  key={dateStr}
+                  type="button"
+                  onClick={() => toggleDay(dateStr)}
+                  className={cn(
+                    "group relative flex h-8 items-center justify-center rounded-sm border border-dashed transition-colors",
+                    selected
+                      ? "border-primary bg-primary text-primary-foreground"
+                      : "border-muted-foreground/30 hover:border-primary/60 hover:bg-muted",
+                  )}
+                >
+                  {selected ? (
+                    <CheckIcon className="size-4" />
+                  ) : (
+                    <span className="text-[10px] font-medium text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100">
+                      æme!
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </>
+        ) : (
+          HOURS.map((hour) => (
+            <div key={hour} className="contents">
+              <div className="pr-2 text-right text-xs text-muted-foreground">
+                {formatHour(hour)}
+              </div>
+              {days.map((d) => {
+                const dateStr = toDateStr(d);
+                const selected = hourSetForDate(slots, dateStr).has(hour);
+                return (
+                  <div
+                    key={dateStr + hour}
+                    onPointerDown={() => {
+                      const next = !selected;
+                      dragValueRef.current = next;
+                      setHour(dateStr, hour, next);
+                    }}
+                    onPointerEnter={() => {
+                      if (dragValueRef.current !== null)
+                        setHour(dateStr, hour, dragValueRef.current);
+                    }}
+                    className={cn(
+                      "group relative flex h-6 cursor-pointer items-center justify-center border border-dashed transition-colors",
+                      selected
+                        ? "border-primary bg-primary"
+                        : "border-muted-foreground/30 hover:border-primary/60 hover:bg-muted",
+                    )}
+                  >
+                    {!selected && (
+                      <span className="text-[9px] font-medium text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100">
+                        æme!
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          ))
+        )}
+      </div>
     </div>
   );
 };
@@ -210,7 +242,9 @@ export const OngoingBoard = ({ activities }: Props) => {
     if (!el) return;
 
     const recompute = () => {
-      const fit = Math.floor((el.clientWidth - LABEL_COLUMN_PX) / DAY_COLUMN_MAX_PX);
+      const fit = Math.floor(
+        (el.clientWidth - CARD_INSET_PX - LABEL_COLUMN_PX) / DAY_COLUMN_MAX_PX,
+      );
       setVisibleDays(Math.max(MIN_VISIBLE_DAYS, fit));
     };
 
@@ -227,7 +261,7 @@ export const OngoingBoard = ({ activities }: Props) => {
   }
 
   return (
-    <div className="flex w-full flex-col gap-3">
+    <div ref={containerRef} className="flex w-full flex-col gap-4">
       <div className="flex items-center justify-between">
         <Button
           type="button"
@@ -248,27 +282,9 @@ export const OngoingBoard = ({ activities }: Props) => {
         </Button>
       </div>
 
-      <div
-        ref={containerRef}
-        className="grid w-full select-none overflow-x-auto"
-        style={{
-          gridTemplateColumns: `${LABEL_COLUMN_PX}px repeat(${days.length}, minmax(3rem, ${DAY_COLUMN_MAX_PX}px))`,
-        }}
-      >
-        <div />
-        {days.map((d) => (
-          <div
-            key={toDateStr(d)}
-            className="px-1 pb-2 text-center text-xs font-medium text-muted-foreground"
-          >
-            {formatDayLabel(d)}
-          </div>
-        ))}
-
-        {activities.map((activity) => (
-          <PersistentActivityRows key={activity.id} activity={activity} days={days} />
-        ))}
-      </div>
+      {activities.map((activity) => (
+        <ActivityPickerCard key={activity.id} activity={activity} days={days} />
+      ))}
     </div>
   );
 };

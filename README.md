@@ -26,3 +26,9 @@ Start the dev server:
 ```bash
 yarn dev
 ```
+
+Browse/edit the local database with Drizzle Studio:
+
+```bash
+yarn db:studio
+```

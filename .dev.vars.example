@@ -1,4 +1,4 @@
 TURSO_DATABASE_URL=http://127.0.0.1:8080
-TURSO_AUTH_TOKEN=
+TURSO_AUTH_TOKEN=local
 SLACK_SIGNING_SECRET=your-signing-secret
 SLACK_BOT_TOKEN=xoxb-your-bot-token
