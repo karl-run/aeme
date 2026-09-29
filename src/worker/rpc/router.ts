@@ -154,8 +154,10 @@ export const apiRouter = new Hono<{ Bindings: Env }>()
 
 if (import.meta.env.DEV) {
   apiRouter.post("/dev/login", async (c) => {
-    const { devLogin } = await import("../auth/dev-login.ts");
-    const session = await devLogin(c.env);
+    const { devLogin, DEV_USERS } = await import("../auth/dev-login.ts");
+    const userKey = c.req.query("user");
+    const key = userKey && userKey in DEV_USERS ? (userKey as keyof typeof DEV_USERS) : "a";
+    const session = await devLogin(c.env, key);
     setSessionCookie(c, session);
     return c.json({ success: true });
   });

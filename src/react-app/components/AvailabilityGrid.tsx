@@ -39,6 +39,9 @@ type Props = {
   value: ActivitySlot[];
   onChange: (slots: ActivitySlot[]) => void;
   readOnly?: boolean;
+  /** Count of other users who picked each slot, keyed by `date` (day
+   * granularity) or `date|hour` (hourly granularity). */
+  othersCount?: Record<string, number>;
 };
 
 export const AvailabilityGrid = ({
@@ -47,6 +50,7 @@ export const AvailabilityGrid = ({
   value,
   onChange,
   readOnly = false,
+  othersCount = {},
 }: Props) => {
   const today = startOfDay(new Date());
 
@@ -146,6 +150,7 @@ export const AvailabilityGrid = ({
           {days.map((d) => {
             const dateStr = toDateStr(d);
             const selected = isDaySelected(dateStr);
+            const others = othersCount[dateStr] ?? 0;
             return (
               <button
                 key={dateStr}
@@ -153,11 +158,20 @@ export const AvailabilityGrid = ({
                 disabled={readOnly}
                 onClick={() => toggleDay(dateStr)}
                 className={cn(
-                  "flex flex-col items-center rounded-md border border-input px-3 py-2 text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-60",
-                  selected ? "border-primary bg-primary text-primary-foreground" : "hover:bg-muted",
+                  "relative flex flex-col items-center rounded-md border border-input px-3 py-2 text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-60",
+                  selected
+                    ? "border-primary bg-primary text-primary-foreground"
+                    : others > 0
+                      ? "border-amber-500/50 bg-amber-500/10 hover:bg-amber-500/20"
+                      : "hover:bg-muted",
                 )}
               >
                 {formatDayLabel(d)}
+                {others > 0 && (
+                  <span className="absolute -top-1.5 -right-1.5 flex size-4 items-center justify-center rounded-full bg-amber-500 text-[9px] font-medium text-white">
+                    {others}
+                  </span>
+                )}
               </button>
             );
           })}
@@ -182,6 +196,7 @@ export const AvailabilityGrid = ({
               {days.map((d) => {
                 const dateStr = toDateStr(d);
                 const selected = hourSetForDate(dateStr).has(hour);
+                const others = othersCount[`${dateStr}|${hour}`] ?? 0;
                 return (
                   <div
                     key={dateStr + hour}
@@ -196,11 +211,26 @@ export const AvailabilityGrid = ({
                       setHour(dateStr, hour, dragValueRef.current);
                     }}
                     className={cn(
-                      "h-6 border border-border/50",
+                      "flex h-6 items-center justify-center border border-border/50",
                       readOnly ? "cursor-not-allowed" : "cursor-pointer hover:bg-muted",
-                      selected && "bg-primary",
+                      selected
+                        ? "bg-primary"
+                        : others > 0 && "border-amber-500/50 bg-amber-500/10 hover:bg-amber-500/20",
                     )}
-                  />
+                  >
+                    {others > 0 && (
+                      <span
+                        className={cn(
+                          "text-[9px] font-medium",
+                          selected
+                            ? "text-primary-foreground"
+                            : "text-amber-700 dark:text-amber-400",
+                        )}
+                      >
+                        {others}
+                      </span>
+                    )}
+                  </div>
                 );
               })}
             </div>

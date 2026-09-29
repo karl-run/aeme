@@ -159,23 +159,31 @@ const ActivityPickerCard = ({ activity, days }: CardProps) => {
             {days.map((d) => {
               const dateStr = toDateStr(d);
               const selected = isDaySelected(dateStr);
+              const others = activity.othersCount[dateStr] ?? 0;
               return (
                 <button
                   key={dateStr}
                   type="button"
                   onClick={() => toggleDay(dateStr)}
                   className={cn(
-                    "group relative flex h-8 items-center justify-center rounded-sm border border-dashed transition-colors",
+                    "group relative flex h-8 items-center justify-center rounded-sm border transition-colors",
                     selected
                       ? "border-primary bg-primary text-primary-foreground"
-                      : "border-muted-foreground/30 hover:border-primary/60 hover:bg-muted",
+                      : others > 0
+                        ? "border-amber-500/50 bg-amber-500/10 hover:bg-amber-500/20"
+                        : "border-dashed border-muted-foreground/30 hover:border-primary/60 hover:bg-muted",
                   )}
                 >
                   {selected ? (
                     <CheckIcon className="size-4" />
-                  ) : (
+                  ) : others === 0 ? (
                     <span className="text-[10px] font-medium text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100">
                       æme!
+                    </span>
+                  ) : null}
+                  {others > 0 && (
+                    <span className="absolute -top-1.5 -right-1.5 flex size-4 items-center justify-center rounded-full bg-amber-500 text-[9px] font-medium text-white">
+                      {others}
                     </span>
                   )}
                 </button>
@@ -191,6 +199,7 @@ const ActivityPickerCard = ({ activity, days }: CardProps) => {
               {days.map((d) => {
                 const dateStr = toDateStr(d);
                 const selected = hourSetForDate(slots, dateStr).has(hour);
+                const others = activity.othersCount[`${dateStr}|${hour}`] ?? 0;
                 return (
                   <div
                     key={dateStr + hour}
@@ -204,16 +213,31 @@ const ActivityPickerCard = ({ activity, days }: CardProps) => {
                         setHour(dateStr, hour, dragValueRef.current);
                     }}
                     className={cn(
-                      "group relative flex h-6 cursor-pointer items-center justify-center border border-dashed transition-colors",
+                      "group relative flex h-6 cursor-pointer items-center justify-center border transition-colors",
                       selected
                         ? "border-primary bg-primary"
-                        : "border-muted-foreground/30 hover:border-primary/60 hover:bg-muted",
+                        : others > 0
+                          ? "border-amber-500/50 bg-amber-500/10 hover:bg-amber-500/20"
+                          : "border-dashed border-muted-foreground/30 hover:border-primary/60 hover:bg-muted",
                     )}
                   >
-                    {!selected && (
-                      <span className="text-[9px] font-medium text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100">
-                        æme!
+                    {others > 0 ? (
+                      <span
+                        className={cn(
+                          "text-[9px] font-medium",
+                          selected
+                            ? "text-primary-foreground"
+                            : "text-amber-700 dark:text-amber-400",
+                        )}
+                      >
+                        {others}
                       </span>
+                    ) : (
+                      !selected && (
+                        <span className="text-[9px] font-medium text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100">
+                          æme!
+                        </span>
+                      )
                     )}
                   </div>
                 );

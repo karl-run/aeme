@@ -1,7 +1,17 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 
 import { createDb } from "../db/db.ts";
-import { activitiesTable, activityAvailabilityTable } from "../db/schema.ts";
+import { activitiesTable, activityAvailabilityTable, type ActivitySlot } from "../db/schema.ts";
+
+/** Key for a slot in an `othersCount` map: the date alone for day-granularity
+ * activities, or `date|hour` per hour covered by an hourly slot. */
+const slotCountKeys = (slot: ActivitySlot): string[] => {
+  if (!slot.from || !slot.to) return [slot.date];
+
+  const fromHour = Number(slot.from.slice(0, 2));
+  const toHour = Number(slot.to.slice(0, 2));
+  return Array.from({ length: toHour - fromHour }, (_, i) => `${slot.date}|${fromHour + i}`);
+};
 
 export const createActivity = async (
   env: Env,
@@ -70,5 +80,32 @@ export const listActivitiesForChannel = async (env: Env, channelId: string, user
     .where(and(eq(activitiesTable.channelId, channelId), eq(activitiesTable.archived, false)))
     .orderBy(activitiesTable.created);
 
-  return rows.map((row) => ({ ...row, slots: row.slots ?? [] }));
+  const activityIds = rows.map((row) => row.id);
+  const othersAvailability = activityIds.length
+    ? await db
+        .select({
+          activityId: activityAvailabilityTable.activityId,
+          userId: activityAvailabilityTable.userId,
+          slots: activityAvailabilityTable.slots,
+        })
+        .from(activityAvailabilityTable)
+        .where(inArray(activityAvailabilityTable.activityId, activityIds))
+    : [];
+
+  const othersCountByActivity = new Map<string, Record<string, number>>();
+  for (const row of othersAvailability) {
+    if (row.userId === userId) continue;
+
+    const counts = othersCountByActivity.get(row.activityId) ?? {};
+    for (const slot of row.slots) {
+      for (const key of slotCountKeys(slot)) counts[key] = (counts[key] ?? 0) + 1;
+    }
+    othersCountByActivity.set(row.activityId, counts);
+  }
+
+  return rows.map((row) => ({
+    ...row,
+    slots: row.slots ?? [],
+    othersCount: othersCountByActivity.get(row.id) ?? {},
+  }));
 };
