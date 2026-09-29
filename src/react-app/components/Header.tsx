@@ -3,6 +3,7 @@ import { ChevronDownIcon } from "lucide-react";
 
 import { useLogoutMutation, useSessionQuery } from "../queries/session.ts";
 import { AddActivityDialog } from "./AddActivityDialog.tsx";
+import { PageContainer } from "./PageContainer.tsx";
 import { Button } from "./ui/button.tsx";
 import {
   DropdownMenu,
@@ -21,7 +22,7 @@ export const Header = () => {
 
   return (
     <header className="border-b border-zinc-700">
-      <div className="mx-auto flex w-full max-w-4xl items-center justify-between px-4 py-3">
+      <PageContainer className="flex items-center justify-between px-4 py-3">
         <Link to="/" className="font-semibold">
           æme
         </Link>
@@ -62,7 +63,7 @@ export const Header = () => {
             </>
           )}
         </div>
-      </div>
+      </PageContainer>
     </header>
   );
 };

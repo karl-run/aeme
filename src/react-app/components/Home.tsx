@@ -4,6 +4,7 @@ import { type ActivityWithAvailability, useActivitiesQuery } from "../queries/ac
 import { useSessionQuery } from "../queries/session.ts";
 import { ActivityCard } from "./ActivityCard.tsx";
 import { OngoingBoard } from "./OngoingBoard.tsx";
+import { PageContainer } from "./PageContainer.tsx";
 
 const isPast = (activity: ActivityWithAvailability) =>
   activity.endTime !== null && activity.endTime < new Date().toISOString();
@@ -43,7 +44,7 @@ export const Home = () => {
   const pastRequests = requests.filter(isPast);
 
   return (
-    <div className="flex w-full flex-col items-start gap-6 p-2 md:px-6">
+    <PageContainer className="flex flex-col items-start gap-6 p-2 md:px-6">
       <section className="flex w-full flex-col gap-3">
         <h2 className="text-lg font-semibold">Ongoing</h2>
         <OngoingBoard activities={ongoing} />
@@ -68,6 +69,6 @@ export const Home = () => {
           </details>
         )}
       </section>
-    </div>
+    </PageContainer>
   );
 };
