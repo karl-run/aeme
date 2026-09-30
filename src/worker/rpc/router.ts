@@ -116,7 +116,6 @@ const upsertAvailabilitySchema = z
 
 const addChannelMemberSchema = z.object({
   userId: z.string().min(1),
-  name: z.string().trim().min(1),
 });
 
 const createBookingSchema = z
@@ -305,8 +304,22 @@ export const apiRouter = new Hono<{ Bindings: Env }>()
     const session = sessionId ? await getSessionMeta(c.env, sessionId) : null;
     if (!session) return c.json({ error: "Unauthorized" }, 401);
 
-    const { userId, name } = c.req.valid("json");
-    await addChannelMember(c.env, { channelId: session.channelId, userId, name });
+    const { userId } = c.req.valid("json");
+
+    // Trust neither the userId nor a client-supplied name — resolve both
+    // against Slack's live roster so only real channel members can be
+    // pre-loaded, under their actual display name.
+    const rosterMembers = await getChannelMembers(c.env, session.channelId);
+    const rosterMember = rosterMembers.find((member) => member.userId === userId);
+    if (!rosterMember) {
+      return c.json({ error: "Not a member of this channel on Slack." }, 400);
+    }
+
+    await addChannelMember(c.env, {
+      channelId: session.channelId,
+      userId: rosterMember.userId,
+      name: rosterMember.name,
+    });
 
     return c.json({ success: true });
   })

@@ -11,8 +11,5 @@ export const ensureUser = async (env: Env, params: { userId: string; name: strin
       name: params.name,
       created: new Date().toISOString(),
     })
-    .onConflictDoUpdate({
-      target: usersTable.userId,
-      set: { name: params.name },
-    });
+    .onConflictDoNothing({ target: usersTable.userId });
 };

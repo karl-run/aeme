@@ -4,7 +4,7 @@ import { check, integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqli
 export const usersTable = sqliteTable("users", {
   userId: text("user_id").primaryKey(),
   name: text().notNull(),
-  created: text().notNull().unique(),
+  created: text().notNull(),
 });
 
 export const channelsTable = sqliteTable("channels", {
@@ -13,7 +13,7 @@ export const channelsTable = sqliteTable("channels", {
   owner: text("owner")
     .notNull()
     .references(() => usersTable.userId),
-  created: text().notNull().unique(),
+  created: text().notNull(),
 });
 
 export const otpLoginsTable = sqliteTable(
@@ -22,8 +22,8 @@ export const otpLoginsTable = sqliteTable(
     otpHash: text("otp_hash").notNull().unique(),
     userId: text("user_id").notNull(),
     channelId: text("channel_id").notNull(),
-    created: text().notNull().unique(),
-    expires: text().notNull().unique(),
+    created: text().notNull(),
+    expires: text().notNull(),
   },
   (t) => [
     check(

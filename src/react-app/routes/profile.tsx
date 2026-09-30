@@ -89,7 +89,7 @@ function Profile() {
                       size="xs"
                       variant="outline"
                       disabled={isAddingThis}
-                      onClick={() => addMember.mutate({ userId: member.userId, name: member.name })}
+                      onClick={() => addMember.mutate({ userId: member.userId })}
                     >
                       {isAddingThis ? "Adding…" : "Add"}
                     </Button>
