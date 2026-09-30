@@ -3,19 +3,19 @@ import { type FormEvent, useState } from "react";
 
 import { useCreateActivityMutation } from "../queries/activities.ts";
 import { Button } from "./ui/button.tsx";
-import { Checkbox } from "./ui/checkbox.tsx";
-import {
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "./ui/dialog.tsx";
 import { Input } from "./ui/input.tsx";
 import { Label } from "./ui/label.tsx";
+import {
+  Sheet,
+  SheetClose,
+  SheetContent,
+  SheetDescription,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "./ui/sheet.tsx";
+import { Tabs, TabsIndicator, TabsList, TabsPanel, TabsTab } from "./ui/tabs.tsx";
 import { Textarea } from "./ui/textarea.tsx";
 
 export const AddActivityDialog = () => {
@@ -63,21 +63,21 @@ export const AddActivityDialog = () => {
   };
 
   return (
-    <Dialog
+    <Sheet
       open={open}
       onOpenChange={(next) => {
         setOpen(next);
         if (!next) reset();
       }}
     >
-      <DialogTrigger render={<Button size="sm" />}>Add activity</DialogTrigger>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Add activity</DialogTitle>
-          <DialogDescription>Create a new activity for this channel.</DialogDescription>
-        </DialogHeader>
+      <SheetTrigger render={<Button size="sm" />}>Add activity</SheetTrigger>
+      <SheetContent>
+        <SheetHeader>
+          <SheetTitle>Add activity</SheetTitle>
+          <SheetDescription>Create a new activity for this channel.</SheetDescription>
+        </SheetHeader>
 
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+        <form onSubmit={handleSubmit} className="flex flex-1 flex-col gap-4">
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="activity-title">Title</Label>
             <Input
@@ -95,15 +95,6 @@ export const AddActivityDialog = () => {
               value={description}
               onChange={(e) => setDescription(e.target.value)}
             />
-          </div>
-
-          <div className="flex items-center gap-2">
-            <Checkbox
-              id="activity-persistent"
-              checked={persistent}
-              onCheckedChange={setPersistent}
-            />
-            <Label htmlFor="activity-persistent">Persistent (ongoing, no end time)</Label>
           </div>
 
           <div className="flex flex-col gap-1.5">
@@ -130,65 +121,84 @@ export const AddActivityDialog = () => {
             </div>
           </div>
 
-          {!persistent && (
-            <div className="flex flex-col gap-1.5">
-              <Label>Suggested dates (optional)</Label>
-              <p className="text-xs text-muted-foreground">
-                E.g. "either on the 12th, 14th or 16th". Leave empty to let people propose any date.
-              </p>
-              <div className="flex flex-col gap-2">
-                {suggestedDates.map((date, i) => (
-                  <div key={i} className="flex gap-2">
-                    <Input
-                      type="date"
-                      value={date}
-                      onChange={(e) =>
-                        setSuggestedDates((dates) =>
-                          dates.map((d, j) => (j === i ? e.target.value : d)),
-                        )
-                      }
-                    />
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon-sm"
-                      aria-label="Remove date"
-                      onClick={() => setSuggestedDates((dates) => dates.filter((_, j) => j !== i))}
-                    >
-                      <XIcon />
-                    </Button>
-                  </div>
-                ))}
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setSuggestedDates((dates) => [...dates, ""])}
-                >
-                  Add a suggested date
-                </Button>
+          <Tabs
+            value={persistent ? "ongoing" : "one-off"}
+            onValueChange={(value) => setPersistent(value === "ongoing")}
+          >
+            <TabsList>
+              <TabsTab value="one-off">One-off</TabsTab>
+              <TabsTab value="ongoing">Ongoing</TabsTab>
+              <TabsIndicator />
+            </TabsList>
+
+            <TabsPanel value="one-off" className="flex flex-col gap-4">
+              <div className="flex flex-col gap-1.5">
+                <Label>Suggested dates (optional)</Label>
+                <p className="text-xs text-muted-foreground">
+                  E.g. "either on the 12th, 14th or 16th". Leave empty to let people propose any
+                  date.
+                </p>
+                <div className="flex flex-col gap-2">
+                  {suggestedDates.map((date, i) => (
+                    <div key={i} className="flex gap-2">
+                      <Input
+                        type="date"
+                        value={date}
+                        onChange={(e) =>
+                          setSuggestedDates((dates) =>
+                            dates.map((d, j) => (j === i ? e.target.value : d)),
+                          )
+                        }
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon-sm"
+                        aria-label="Remove date"
+                        onClick={() =>
+                          setSuggestedDates((dates) => dates.filter((_, j) => j !== i))
+                        }
+                      >
+                        <XIcon />
+                      </Button>
+                    </div>
+                  ))}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setSuggestedDates((dates) => [...dates, ""])}
+                  >
+                    Add a suggested date
+                  </Button>
+                </div>
               </div>
-            </div>
-          )}
 
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="activity-end-time">{persistent ? "End time" : "Respond by"}</Label>
-            <Input
-              id="activity-end-time"
-              type="datetime-local"
-              value={endTime}
-              onChange={(e) => setEndTime(e.target.value)}
-              disabled={persistent}
-              required={!persistent}
-            />
-          </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="activity-end-time">Respond by</Label>
+                <Input
+                  id="activity-end-time"
+                  type="datetime-local"
+                  value={endTime}
+                  onChange={(e) => setEndTime(e.target.value)}
+                  required={!persistent}
+                />
+              </div>
+            </TabsPanel>
 
-          <DialogFooter>
-            <DialogClose render={<Button type="button" variant="outline" />}>Cancel</DialogClose>
+            <TabsPanel value="ongoing">
+              <p className="text-sm text-muted-foreground">
+                Runs indefinitely, with no deadline to respond by.
+              </p>
+            </TabsPanel>
+          </Tabs>
+
+          <SheetFooter>
+            <SheetClose render={<Button type="button" variant="outline" />}>Cancel</SheetClose>
             <Button type="submit" disabled={createActivity.isPending}>
               {createActivity.isPending ? "Adding…" : "Add activity"}
             </Button>
-          </DialogFooter>
+          </SheetFooter>
 
           {createActivity.isError && (
             <p className="text-sm text-destructive" aria-live="polite">
@@ -196,7 +206,7 @@ export const AddActivityDialog = () => {
             </p>
           )}
         </form>
-      </DialogContent>
-    </Dialog>
+      </SheetContent>
+    </Sheet>
   );
 };
