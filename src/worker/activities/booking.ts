@@ -10,6 +10,15 @@ import { postMessage, updateMessage } from "../slack/messages.ts";
  * pings them); guests with no Slack account are listed by plain name only —
  * never wrapped in `<@…>`, since that syntax only resolves for real Slack
  * user IDs. */
+const isUrl = (value: string) => {
+  try {
+    new URL(value);
+    return true;
+  } catch {
+    return false;
+  }
+};
+
 const buildBookingMessage = (params: {
   activityTitle: string;
   date: string;
@@ -18,6 +27,8 @@ const buildBookingMessage = (params: {
   createdBy: string;
   attendeeUserIds: string[];
   guestNames: string[];
+  description: string;
+  location: string;
 }) => {
   const formattedDate = new Date(`${params.date}T00:00:00`).toLocaleDateString("en-US", {
     weekday: "long",
@@ -48,6 +59,22 @@ const buildBookingMessage = (params: {
         text: `*${formattedDate}* · ${params.from}–${params.to}\n🙋 Booked by <@${params.createdBy}>`,
       },
     },
+    ...(params.description
+      ? [{ type: "section", text: { type: "mrkdwn", text: `📝 ${params.description}` } }]
+      : []),
+    ...(params.location
+      ? [
+          {
+            type: "section",
+            text: {
+              type: "mrkdwn",
+              text: isUrl(params.location)
+                ? `📍 <${params.location}|Location>`
+                : `📍 ${params.location}`,
+            },
+          },
+        ]
+      : []),
     {
       type: "section",
       text: { type: "mrkdwn", text: `👥 *Joining*\n${attendeeList}` },
@@ -115,6 +142,8 @@ export const createBooking = async (
     date: string;
     from: string;
     to: string;
+    description: string;
+    location: string;
     attendeeUserIds: string[];
     guestNames: string[];
   },
@@ -131,6 +160,8 @@ export const createBooking = async (
     date: params.date,
     from: params.from,
     to: params.to,
+    description: params.description,
+    location: params.location,
     created: now,
   });
   const attendeeInserts = params.attendeeUserIds.map((userId) =>
@@ -154,6 +185,8 @@ export const createBooking = async (
     createdBy: params.createdBy,
     attendeeUserIds: params.attendeeUserIds,
     guestNames: params.guestNames,
+    description: params.description,
+    location: params.location,
   });
   await announceBooking(env, {
     bookingId,
@@ -176,6 +209,8 @@ export const updateBooking = async (
     date: string;
     from: string;
     to: string;
+    description: string;
+    location: string;
     attendeeUserIds: string[];
     guestNames: string[];
     slackMessageTs: string | null;
@@ -185,7 +220,13 @@ export const updateBooking = async (
 
   const bookingUpdate = db
     .update(activityBookingsTable)
-    .set({ date: params.date, from: params.from, to: params.to })
+    .set({
+      date: params.date,
+      from: params.from,
+      to: params.to,
+      description: params.description,
+      location: params.location,
+    })
     .where(eq(activityBookingsTable.id, params.bookingId));
   const attendeeDelete = db
     .delete(activityBookingAttendeesTable)
@@ -217,6 +258,8 @@ export const updateBooking = async (
     createdBy: params.createdBy,
     attendeeUserIds: params.attendeeUserIds,
     guestNames: params.guestNames,
+    description: params.description,
+    location: params.location,
   });
   await announceBooking(env, {
     bookingId: params.bookingId,

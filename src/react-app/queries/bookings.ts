@@ -12,6 +12,8 @@ export const useCreateBookingMutation = () => {
       date: string;
       from: string;
       to: string;
+      description: string;
+      location: string;
       attendeeUserIds: string[];
       guestNames: string[];
     }) => {
@@ -21,6 +23,8 @@ export const useCreateBookingMutation = () => {
           date: params.date,
           from: params.from,
           to: params.to,
+          description: params.description,
+          location: params.location,
           attendeeUserIds: params.attendeeUserIds,
           guestNames: params.guestNames,
         },
@@ -44,6 +48,8 @@ export const useUpdateBookingMutation = () => {
       date: string;
       from: string;
       to: string;
+      description: string;
+      location: string;
       attendeeUserIds: string[];
       guestNames: string[];
     }) => {
@@ -53,6 +59,8 @@ export const useUpdateBookingMutation = () => {
           date: params.date,
           from: params.from,
           to: params.to,
+          description: params.description,
+          location: params.location,
           attendeeUserIds: params.attendeeUserIds,
           guestNames: params.guestNames,
         },

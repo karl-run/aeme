@@ -124,6 +124,8 @@ export const listActivitiesForChannel = async (env: Env, channelId: string, user
           date: activityBookingsTable.date,
           from: activityBookingsTable.from,
           to: activityBookingsTable.to,
+          description: activityBookingsTable.description,
+          location: activityBookingsTable.location,
           createdBy: activityBookingsTable.createdBy,
           createdByName: usersTable.name,
         })
@@ -188,6 +190,8 @@ export const listActivitiesForChannel = async (env: Env, channelId: string, user
       date: booking.date,
       from: booking.from,
       to: booking.to,
+      description: booking.description,
+      location: booking.location,
       createdBy: booking.createdBy,
       createdByName: booking.createdByName,
       attendeeUserIds: attendeeIdsByBooking.get(booking.id) ?? [],

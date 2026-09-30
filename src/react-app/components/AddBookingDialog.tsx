@@ -17,6 +17,7 @@ import {
 } from "./ui/dialog.tsx";
 import { Input } from "./ui/input.tsx";
 import { Label } from "./ui/label.tsx";
+import { Textarea } from "./ui/textarea.tsx";
 
 const formatDateLabel = (date: string) =>
   new Date(`${date}T00:00:00`).toLocaleDateString(undefined, {
@@ -30,6 +31,8 @@ type EditableBooking = {
   date: string;
   from: string;
   to: string;
+  description: string;
+  location: string;
   attendeeUserIds: string[];
   guestNames: string[];
 };
@@ -52,6 +55,8 @@ export const AddBookingDialog = ({ activityId, date, trigger, booking }: Props) 
   const [bookingDate, setBookingDate] = useState(booking?.date ?? date ?? "");
   const [from, setFrom] = useState(booking?.from ?? "");
   const [to, setTo] = useState(booking?.to ?? "");
+  const [description, setDescription] = useState(booking?.description ?? "");
+  const [location, setLocation] = useState(booking?.location ?? "");
   const [attendeeUserIds, setAttendeeUserIds] = useState<string[]>(booking?.attendeeUserIds ?? []);
   const [guestNames, setGuestNames] = useState<string[]>(booking?.guestNames ?? []);
   const [guestNameInput, setGuestNameInput] = useState("");
@@ -65,6 +70,8 @@ export const AddBookingDialog = ({ activityId, date, trigger, booking }: Props) 
     setBookingDate(booking?.date ?? date ?? "");
     setFrom(booking?.from ?? "");
     setTo(booking?.to ?? "");
+    setDescription(booking?.description ?? "");
+    setLocation(booking?.location ?? "");
     setAttendeeUserIds(booking?.attendeeUserIds ?? []);
     setGuestNames(booking?.guestNames ?? []);
     setGuestNameInput("");
@@ -105,6 +112,8 @@ export const AddBookingDialog = ({ activityId, date, trigger, booking }: Props) 
           date: bookingDate,
           from,
           to,
+          description,
+          location,
           attendeeUserIds,
           guestNames,
         },
@@ -112,7 +121,16 @@ export const AddBookingDialog = ({ activityId, date, trigger, booking }: Props) 
       );
     } else {
       createBooking.mutate(
-        { activityId, date: bookingDate, from, to, attendeeUserIds, guestNames },
+        {
+          activityId,
+          date: bookingDate,
+          from,
+          to,
+          description,
+          location,
+          attendeeUserIds,
+          guestNames,
+        },
         {
           onSuccess: () => {
             resetToInitial();
@@ -173,6 +191,26 @@ export const AddBookingDialog = ({ activityId, date, trigger, booking }: Props) 
                 required
               />
             </div>
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="booking-description">Description</Label>
+            <Textarea
+              id="booking-description"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="What's happening?"
+            />
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="booking-location">Location</Label>
+            <Input
+              id="booking-location"
+              value={location}
+              onChange={(e) => setLocation(e.target.value)}
+              placeholder="Address or Google Maps link"
+            />
           </div>
 
           <div className="flex flex-col gap-1.5">

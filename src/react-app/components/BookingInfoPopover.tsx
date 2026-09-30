@@ -1,6 +1,7 @@
 import { cn } from "cn";
 import { InfoIcon } from "lucide-react";
 
+import { isUrl } from "../lib/is-url.ts";
 import type { ActivityWithAvailability } from "../queries/activities.ts";
 import { useSessionQuery } from "../queries/session.ts";
 import { AddBookingDialog } from "./AddBookingDialog.tsx";
@@ -55,6 +56,8 @@ export const BookingInfoPopover = ({ activityId, bookings, className }: Props) =
                       date: booking.date,
                       from: booking.from,
                       to: booking.to,
+                      description: booking.description,
+                      location: booking.location,
                       attendeeUserIds: booking.attendeeUserIds,
                       guestNames: booking.guestNames,
                     }}
@@ -66,6 +69,23 @@ export const BookingInfoPopover = ({ activityId, bookings, className }: Props) =
                   />
                 )}
               </div>
+              {booking.description && <p className="text-xs">{booking.description}</p>}
+              {booking.location && (
+                <p className="text-xs">
+                  {isUrl(booking.location) ? (
+                    <a
+                      href={booking.location}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-muted-foreground underline"
+                    >
+                      {booking.location}
+                    </a>
+                  ) : (
+                    <span className="text-muted-foreground">{booking.location}</span>
+                  )}
+                </p>
+              )}
               <p className="text-xs text-muted-foreground">Booked by {booking.createdByName}</p>
               <p className="text-xs text-muted-foreground">
                 {booking.attendeeNames.length > 0

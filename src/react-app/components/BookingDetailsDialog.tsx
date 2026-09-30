@@ -1,5 +1,6 @@
 import type { ReactElement } from "react";
 
+import { isUrl } from "../lib/is-url.ts";
 import type { ActivityWithAvailability } from "../queries/activities.ts";
 import { useSessionQuery } from "../queries/session.ts";
 import { AddBookingDialog } from "./AddBookingDialog.tsx";
@@ -46,6 +47,19 @@ export const BookingDetailsDialog = ({ activityId, booking, trigger }: Props) =>
         </DialogHeader>
 
         <div className="flex flex-col gap-2 text-sm">
+          {booking.description && <p>{booking.description}</p>}
+          {booking.location && (
+            <p>
+              <span className="text-muted-foreground">Location:</span>{" "}
+              {isUrl(booking.location) ? (
+                <a href={booking.location} target="_blank" rel="noreferrer" className="underline">
+                  {booking.location}
+                </a>
+              ) : (
+                booking.location
+              )}
+            </p>
+          )}
           <p>
             <span className="text-muted-foreground">Booked by</span> {booking.createdByName}
           </p>
@@ -67,6 +81,8 @@ export const BookingDetailsDialog = ({ activityId, booking, trigger }: Props) =>
                 date: booking.date,
                 from: booking.from,
                 to: booking.to,
+                description: booking.description,
+                location: booking.location,
                 attendeeUserIds: booking.attendeeUserIds,
                 guestNames: booking.guestNames,
               }}

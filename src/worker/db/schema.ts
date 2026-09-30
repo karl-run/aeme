@@ -130,6 +130,8 @@ export const activityBookingsTable = sqliteTable(
     date: text().notNull(),
     from: text().notNull(),
     to: text().notNull(),
+    description: text().notNull().default(""),
+    location: text().notNull().default(""),
     /** Slack message timestamp of the announcement post for this booking, so
      * it can be edited in place (via `chat.update`) instead of re-posted as
      * the booking's data changes. Null until the post succeeds. */
