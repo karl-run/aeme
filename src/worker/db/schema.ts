@@ -75,6 +75,9 @@ export const activitiesTable = sqliteTable(
     channelId: text("channel_id")
       .notNull()
       .references(() => channelsTable.channelId),
+    /** Nullable since activities created before this field existed have no
+     * recorded creator — only the creator may edit an activity. */
+    createdBy: text("created_by").references(() => usersTable.userId),
     title: text().notNull(),
     description: text().notNull(),
     endTime: text("end_time"),

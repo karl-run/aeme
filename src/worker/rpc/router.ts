@@ -7,6 +7,7 @@ import {
   createActivity,
   getActivityById,
   listActivitiesForChannel,
+  updateActivity,
 } from "../activities/activity.ts";
 import { upsertAvailability } from "../activities/availability.ts";
 import { createBooking, getBookingById, updateBooking } from "../activities/booking.ts";
@@ -51,6 +52,16 @@ const createActivitySchema = z
     message: "Suggested dates are only supported for non-persistent activities.",
     path: ["suggestedDates"],
   });
+
+/** Only the fields an owner may edit after creation — not the type
+ * (persistent vs. one-off), granularity, or deadline. `suggestedDates` is
+ * ignored server-side for a persistent activity. */
+const updateActivitySchema = z.object({
+  title: z.string().trim().min(1),
+  description: z.string().trim(),
+  idealMemberCount: z.number().int().positive().nullable(),
+  suggestedDates: z.array(z.iso.date()).min(1).nullable(),
+});
 
 const activitySlotSchema = z
   .object({
@@ -166,6 +177,7 @@ export const apiRouter = new Hono<{ Bindings: Env }>()
     } = c.req.valid("json");
     const activity = await createActivity(c.env, {
       channelId: session.channelId,
+      createdBy: session.userId,
       title,
       description,
       endTime,
@@ -184,6 +196,31 @@ export const apiRouter = new Hono<{ Bindings: Env }>()
 
     const activities = await listActivitiesForChannel(c.env, session.channelId, session.userId);
     return c.json({ activities });
+  })
+  .put("/activities/:id", zValidator("json", updateActivitySchema), async (c) => {
+    const sessionId = getCookie(c, SESSION_COOKIE_NAME);
+    const session = sessionId ? await getSessionMeta(c.env, sessionId) : null;
+    if (!session) return c.json({ error: "Unauthorized" }, 401);
+
+    const activityId = c.req.param("id");
+    const activity = await getActivityById(c.env, activityId);
+    if (!activity || activity.channelId !== session.channelId) {
+      return c.json({ error: "Not found" }, 404);
+    }
+    if (activity.createdBy !== session.userId) {
+      return c.json({ error: "Only the activity's creator can edit it." }, 403);
+    }
+
+    const { title, description, idealMemberCount, suggestedDates } = c.req.valid("json");
+    const updated = await updateActivity(c.env, {
+      activityId,
+      title,
+      description,
+      idealMemberCount,
+      suggestedDates,
+    });
+
+    return c.json({ activity: updated });
   })
   .put("/activities/:id/availability", zValidator("json", upsertAvailabilitySchema), async (c) => {
     const sessionId = getCookie(c, SESSION_COOKIE_NAME);

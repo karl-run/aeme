@@ -1,9 +1,11 @@
-import { CheckIcon } from "lucide-react";
+import { CheckIcon, PencilIcon } from "lucide-react";
 
 import type { ActivityWithAvailability } from "../queries/activities.ts";
+import { useSessionQuery } from "../queries/session.ts";
 import { AddBookingDialog } from "./AddBookingDialog.tsx";
 import { AvailabilityDialog } from "./AvailabilityDialog.tsx";
 import { BookingDetailsDialog } from "./BookingDetailsDialog.tsx";
+import { EditActivityDialog } from "./EditActivityDialog.tsx";
 import { Button } from "./ui/button.tsx";
 
 const summarize = (activity: ActivityWithAvailability) => {
@@ -38,12 +40,32 @@ type Props = {
 
 export const ActivityCard = ({ activity }: Props) => {
   const isBooked = activity.bookings.length > 0;
+  const { data } = useSessionQuery();
+  const isOwner = data?.session?.userId === activity.createdBy;
 
   return (
     <div className="flex w-full flex-col gap-3 rounded-lg border border-border bg-card p-4">
       <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
         <div className="min-w-0">
-          <h3 className="font-medium">{activity.title}</h3>
+          <div className="flex items-center gap-1.5">
+            <h3 className="font-medium">{activity.title}</h3>
+            {isOwner && (
+              <EditActivityDialog
+                activity={activity}
+                trigger={
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-sm"
+                    aria-label="Edit activity"
+                    className="size-5 text-muted-foreground"
+                  >
+                    <PencilIcon className="size-3.5" />
+                  </Button>
+                }
+              />
+            )}
+          </div>
           {activity.description && (
             <p className="text-sm text-muted-foreground">{activity.description}</p>
           )}

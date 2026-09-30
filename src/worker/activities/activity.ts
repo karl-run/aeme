@@ -167,6 +167,7 @@ export const createActivity = async (
   env: Env,
   params: {
     channelId: string;
+    createdBy: string;
     title: string;
     description: string;
     endTime: string | null;
@@ -183,6 +184,7 @@ export const createActivity = async (
     .values({
       id: crypto.randomUUID(),
       channelId: params.channelId,
+      createdBy: params.createdBy,
       title: params.title,
       description: params.description,
       endTime: params.persistent ? null : params.endTime,
@@ -202,6 +204,47 @@ export const createActivity = async (
   return getActivityById(env, activity.id);
 };
 
+/** Only the activity's creator may call this (enforced by the router) — the
+ * type (persistent vs. one-off) and its granularity/deadline are fixed at
+ * creation and not editable here. `suggestedDates` is ignored for a
+ * persistent activity (which never has any, enforced by a DB check
+ * constraint) regardless of what's passed. Narrowing `suggestedDates` never
+ * touches existing `activity_availability` rows — a response for a date
+ * that's since been removed just stays stored, invisible until the date is
+ * re-added. */
+export const updateActivity = async (
+  env: Env,
+  params: {
+    activityId: string;
+    title: string;
+    description: string;
+    idealMemberCount: number | null;
+    suggestedDates: string[] | null;
+  },
+) => {
+  const db = createDb(env);
+
+  const [existing] = await db
+    .select({ persistent: activitiesTable.persistent })
+    .from(activitiesTable)
+    .where(eq(activitiesTable.id, params.activityId));
+  if (!existing) return null;
+
+  await db
+    .update(activitiesTable)
+    .set({
+      title: params.title,
+      description: params.description,
+      idealMemberCount: params.idealMemberCount,
+      suggestedDates: existing.persistent ? null : params.suggestedDates,
+    })
+    .where(eq(activitiesTable.id, params.activityId));
+
+  await announceActivitySuggestion(env, params.activityId);
+
+  return getActivityById(env, params.activityId);
+};
+
 export const getActivityById = async (env: Env, id: string) => {
   const db = createDb(env);
 
@@ -216,6 +259,7 @@ export const listActivitiesForChannel = async (env: Env, channelId: string, user
   const rows = await db
     .select({
       id: activitiesTable.id,
+      createdBy: activitiesTable.createdBy,
       title: activitiesTable.title,
       description: activitiesTable.description,
       endTime: activitiesTable.endTime,

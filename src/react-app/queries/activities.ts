@@ -46,3 +46,32 @@ export const useCreateActivityMutation = () => {
     },
   });
 };
+
+export const useUpdateActivityMutation = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (params: {
+      activityId: string;
+      title: string;
+      description: string;
+      idealMemberCount: number | null;
+      suggestedDates: string[] | null;
+    }) => {
+      const res = await client.activities[":id"].$put({
+        param: { id: params.activityId },
+        json: {
+          title: params.title,
+          description: params.description,
+          idealMemberCount: params.idealMemberCount,
+          suggestedDates: params.suggestedDates,
+        },
+      });
+      if (!res.ok) throw new Error("Failed to save changes.");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: activitiesQueryKey });
+    },
+  });
+};

@@ -1,5 +1,5 @@
 import { cn } from "cn";
-import { CheckIcon, PlusIcon } from "lucide-react";
+import { CheckIcon, PencilIcon, PlusIcon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import type { ActivitySlot } from "../../worker/db/schema.ts";
@@ -12,8 +12,10 @@ import {
 } from "../lib/slot-color.ts";
 import type { ActivityWithAvailability } from "../queries/activities.ts";
 import { useUpsertAvailabilityMutation } from "../queries/availability.ts";
+import { useSessionQuery } from "../queries/session.ts";
 import { AddBookingDialog } from "./AddBookingDialog.tsx";
 import { BookingInfoPopover } from "./BookingInfoPopover.tsx";
+import { EditActivityDialog } from "./EditActivityDialog.tsx";
 import { Button } from "./ui/button.tsx";
 import { UpcomingBookings } from "./UpcomingBookings.tsx";
 
@@ -89,6 +91,8 @@ type CardProps = {
 const ActivityPickerCard = ({ activity, days }: CardProps) => {
   const [slots, setSlots] = useState<ActivitySlot[]>(activity.slots);
   const upsertAvailability = useUpsertAvailabilityMutation();
+  const { data } = useSessionQuery();
+  const isOwner = data?.session?.userId === activity.createdBy;
 
   const dirtyRef = useRef(false);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -146,6 +150,22 @@ const ActivityPickerCard = ({ activity, days }: CardProps) => {
         <div className="flex min-w-0 flex-col gap-1">
           <div className="flex items-center gap-2">
             <h3 className="font-semibold">{activity.title}</h3>
+            {isOwner && (
+              <EditActivityDialog
+                activity={activity}
+                trigger={
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-sm"
+                    aria-label="Edit activity"
+                    className="size-5 text-muted-foreground"
+                  >
+                    <PencilIcon className="size-3.5" />
+                  </Button>
+                }
+              />
+            )}
             {status && <span className="text-xs text-muted-foreground">{status}</span>}
           </div>
           {activity.description && (
