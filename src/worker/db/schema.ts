@@ -42,9 +42,11 @@ export const sessionsTable = sqliteTable("sessions", {
 });
 
 /** Durable record that a user belongs to a channel — a user can be a member
- * of multiple channels on the same Slack workspace. Recorded the first time
- * they interact with æme from that channel (see `ensureChannelMember`), not
- * synced from Slack's own membership list. */
+ * of multiple channels on the same Slack workspace. Recorded either when they
+ * interact with æme from that channel for real (see `ensureChannelMember`),
+ * or pre-loaded from Slack's live member list before they've ever logged in
+ * (see the profile page's "Add" action) — not kept in sync with Slack after
+ * that, just a one-time snapshot either way. */
 export const channelMembersTable = sqliteTable(
   "channel_members",
   {
@@ -55,7 +57,7 @@ export const channelMembersTable = sqliteTable(
     userId: text("user_id")
       .notNull()
       .references(() => usersTable.userId),
-    created: text().notNull(),
+    joined: text().notNull(),
   },
   (t) => [uniqueIndex("channel_members_channel_user").on(t.channelId, t.userId)],
 );

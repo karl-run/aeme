@@ -17,7 +17,8 @@ import {
   SESSION_COOKIE_NAME,
   setSessionCookie,
 } from "../auth/session.ts";
-import { listChannelMembers } from "../channels/channel.ts";
+import { addChannelMember, listChannelMembers } from "../channels/channel.ts";
+import { getChannelInfo, getChannelMembers } from "../slack/channels.ts";
 
 const loginSchema = z.object({
   otp: z
@@ -63,6 +64,11 @@ const activitySlotSchema = z
 
 const upsertAvailabilitySchema = z.object({
   slots: z.array(activitySlotSchema),
+});
+
+const addChannelMemberSchema = z.object({
+  userId: z.string().min(1),
+  name: z.string().trim().min(1),
 });
 
 const createBookingSchema = z
@@ -173,6 +179,28 @@ export const apiRouter = new Hono<{ Bindings: Env }>()
 
     const members = await listChannelMembers(c.env, session.channelId);
     return c.json({ members });
+  })
+  .get("/channel", async (c) => {
+    const sessionId = getCookie(c, SESSION_COOKIE_NAME);
+    const session = sessionId ? await getSessionMeta(c.env, sessionId) : null;
+    if (!session) return c.json({ error: "Unauthorized" }, 401);
+
+    const [channel, members] = await Promise.all([
+      getChannelInfo(c.env, session.channelId),
+      getChannelMembers(c.env, session.channelId),
+    ]);
+
+    return c.json({ channel: channel ? { ...channel, members } : null });
+  })
+  .post("/channel/members", zValidator("json", addChannelMemberSchema), async (c) => {
+    const sessionId = getCookie(c, SESSION_COOKIE_NAME);
+    const session = sessionId ? await getSessionMeta(c.env, sessionId) : null;
+    if (!session) return c.json({ error: "Unauthorized" }, 401);
+
+    const { userId, name } = c.req.valid("json");
+    await addChannelMember(c.env, { channelId: session.channelId, userId, name });
+
+    return c.json({ success: true });
   })
   .post("/activities/:id/bookings", zValidator("json", createBookingSchema), async (c) => {
     const sessionId = getCookie(c, SESSION_COOKIE_NAME);

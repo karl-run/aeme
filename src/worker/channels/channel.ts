@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 
 import { createDb } from "../db/db.ts";
 import { channelMembersTable, channelsTable, usersTable } from "../db/schema.ts";
+import { ensureUser } from "../users/user.ts";
 
 export const ensureChannel = async (
   env: Env,
@@ -35,11 +36,24 @@ export const ensureChannelMember = async (
       id: crypto.randomUUID(),
       channelId: params.channelId,
       userId: params.userId,
-      created: new Date().toISOString(),
+      joined: new Date().toISOString(),
     })
     .onConflictDoNothing({
       target: [channelMembersTable.channelId, channelMembersTable.userId],
     });
+};
+
+/** Pre-loads a Slack member (from the live roster, see `getChannelMembers`)
+ * into the local DB before they've ever logged into æme, so they're
+ * immediately selectable as a channel member (e.g. as a booking attendee).
+ * If they do log in later, `ensureUser`/`ensureChannelMember` just no-op on
+ * the rows this already created. */
+export const addChannelMember = async (
+  env: Env,
+  params: { channelId: string; userId: string; name: string },
+) => {
+  await ensureUser(env, { userId: params.userId, name: params.name });
+  await ensureChannelMember(env, { channelId: params.channelId, userId: params.userId });
 };
 
 export const listChannelMembers = async (env: Env, channelId: string) => {
