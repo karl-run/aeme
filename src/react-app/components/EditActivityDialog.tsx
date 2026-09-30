@@ -151,7 +151,19 @@ export const EditActivityDialog = ({ activity, trigger }: Props) => {
                     mode="multiple"
                     selected={suggestedDates.map((date) => new Date(`${date}T00:00:00`))}
                     onSelect={(dates) => setSuggestedDates((dates ?? []).map(toDateStr).sort())}
+                    disabled={{ before: new Date() }}
                   />
+                  <div className="flex justify-end border-t border-border p-2">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      disabled={suggestedDates.length === 0}
+                      onClick={() => setSuggestedDates([])}
+                    >
+                      Clear
+                    </Button>
+                  </div>
                 </PopoverContent>
               </Popover>
             </div>

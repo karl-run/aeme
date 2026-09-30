@@ -1,3 +1,4 @@
+import { format } from "date-fns";
 import { CalendarIcon } from "lucide-react";
 import { type FormEvent, useState } from "react";
 
@@ -39,9 +40,15 @@ export const AddActivityDialog = () => {
   const [slotGranularity, setSlotGranularity] = useState<"day" | "hourly">("day");
   const [suggestedDates, setSuggestedDates] = useState<string[]>([]);
   const [datesOpen, setDatesOpen] = useState(false);
+  const [endDateOpen, setEndDateOpen] = useState(false);
   const [idealMemberCount, setIdealMemberCount] = useState("");
 
   const createActivity = useCreateActivityMutation();
+
+  // `endTime` stays a single "YYYY-MM-DDTHH:mm" string (what the API expects)
+  // — these just split it for the two separate date/time controls.
+  const endDatePart = endTime.split("T")[0] ?? "";
+  const endTimePart = endTime.split("T")[1] ?? "16:00";
 
   const reset = () => {
     setTitle("");
@@ -55,6 +62,7 @@ export const AddActivityDialog = () => {
 
   const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (!persistent && !endTime) return;
 
     createActivity.mutate(
       {
@@ -190,20 +198,68 @@ export const AddActivityDialog = () => {
                       mode="multiple"
                       selected={suggestedDates.map((date) => new Date(`${date}T00:00:00`))}
                       onSelect={(dates) => setSuggestedDates((dates ?? []).map(toDateStr).sort())}
+                      disabled={{ before: new Date() }}
                     />
+                    <div className="flex justify-end border-t border-border p-2">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        disabled={suggestedDates.length === 0}
+                        onClick={() => setSuggestedDates([])}
+                      >
+                        Clear
+                      </Button>
+                    </div>
                   </PopoverContent>
                 </Popover>
               </div>
 
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="activity-end-time">Respond by</Label>
-                <Input
-                  id="activity-end-time"
-                  type="datetime-local"
-                  value={endTime}
-                  onChange={(e) => setEndTime(e.target.value)}
-                  required={!persistent}
-                />
+                <div className="flex gap-2">
+                  <Popover open={endDateOpen} onOpenChange={setEndDateOpen}>
+                    <PopoverTrigger
+                      render={
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="flex-1 justify-start font-normal"
+                        />
+                      }
+                    >
+                      <CalendarIcon className="size-4 shrink-0" />
+                      {endDatePart ? (
+                        format(new Date(`${endDatePart}T00:00:00`), "PPP")
+                      ) : (
+                        <span className="text-muted-foreground">Pick a date</span>
+                      )}
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        required
+                        selected={endDatePart ? new Date(`${endDatePart}T00:00:00`) : undefined}
+                        onSelect={(date) => {
+                          setEndTime(`${toDateStr(date)}T${endTimePart}`);
+                          setEndDateOpen(false);
+                        }}
+                        disabled={{ before: new Date() }}
+                      />
+                    </PopoverContent>
+                  </Popover>
+                  <Input
+                    id="activity-end-time"
+                    type="time"
+                    value={endTimePart}
+                    onChange={(e) =>
+                      setEndTime(endDatePart ? `${endDatePart}T${e.target.value}` : "")
+                    }
+                    disabled={!endDatePart}
+                    required={!persistent}
+                    className="w-32"
+                  />
+                </div>
               </div>
             </TabsPanel>
 

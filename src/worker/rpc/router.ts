@@ -51,17 +51,41 @@ const createActivitySchema = z
   .refine((data) => !data.persistent || data.suggestedDates === null, {
     message: "Suggested dates are only supported for non-persistent activities.",
     path: ["suggestedDates"],
-  });
+  })
+  .refine(
+    (data) => data.persistent || data.endTime === null || data.endTime >= new Date().toISOString(),
+    {
+      message: "Respond-by time can't be in the past.",
+      path: ["endTime"],
+    },
+  )
+  .refine(
+    (data) => {
+      if (data.persistent || !data.suggestedDates) return true;
+      const today = new Date().toISOString().slice(0, 10);
+      return data.suggestedDates.every((date) => date >= today);
+    },
+    { message: "Suggested dates can't be in the past.", path: ["suggestedDates"] },
+  );
 
 /** Only the fields an owner may edit after creation — not the type
  * (persistent vs. one-off), granularity, or deadline. `suggestedDates` is
  * ignored server-side for a persistent activity. */
-const updateActivitySchema = z.object({
-  title: z.string().trim().min(1),
-  description: z.string().trim(),
-  idealMemberCount: z.number().int().positive().nullable(),
-  suggestedDates: z.array(z.iso.date()).min(1).nullable(),
-});
+const updateActivitySchema = z
+  .object({
+    title: z.string().trim().min(1),
+    description: z.string().trim(),
+    idealMemberCount: z.number().int().positive().nullable(),
+    suggestedDates: z.array(z.iso.date()).min(1).nullable(),
+  })
+  .refine(
+    (data) => {
+      if (!data.suggestedDates) return true;
+      const today = new Date().toISOString().slice(0, 10);
+      return data.suggestedDates.every((date) => date >= today);
+    },
+    { message: "Suggested dates can't be in the past.", path: ["suggestedDates"] },
+  );
 
 const activitySlotSchema = z
   .object({
