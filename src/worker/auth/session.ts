@@ -69,3 +69,15 @@ export async function deleteSession(env: Env, sessionId: string): Promise<void> 
   const db = createDb(env);
   await db.delete(sessionsTable).where(eq(sessionsTable.id, sessionId));
 }
+
+/** Points an existing session at a different channel — the caller must
+ * verify the user is actually a member of `channelId` first (see
+ * `listChannelsForUser`); this just performs the update. */
+export async function switchSessionChannel(
+  env: Env,
+  sessionId: string,
+  channelId: string,
+): Promise<void> {
+  const db = createDb(env);
+  await db.update(sessionsTable).set({ channelId }).where(eq(sessionsTable.id, sessionId));
+}

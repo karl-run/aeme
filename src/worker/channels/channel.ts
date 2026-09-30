@@ -56,6 +56,22 @@ export const addChannelMember = async (
   await ensureChannelMember(env, { channelId: params.channelId, userId: params.userId });
 };
 
+/** Channels a user can switch a session into — every channel they've ever
+ * interacted with æme from, or been pre-loaded into via the profile page's
+ * "Add" action. */
+export const listChannelsForUser = async (env: Env, userId: string) => {
+  const db = createDb(env);
+
+  const rows = await db
+    .select({ channelId: channelsTable.channelId, name: channelsTable.name })
+    .from(channelMembersTable)
+    .innerJoin(channelsTable, eq(channelsTable.channelId, channelMembersTable.channelId))
+    .where(eq(channelMembersTable.userId, userId))
+    .orderBy(channelsTable.name);
+
+  return rows;
+};
+
 export const listChannelMembers = async (env: Env, channelId: string) => {
   const db = createDb(env);
 

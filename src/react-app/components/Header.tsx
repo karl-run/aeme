@@ -1,7 +1,12 @@
 import { Link } from "@tanstack/react-router";
-import { ChevronDownIcon } from "lucide-react";
+import { CheckIcon, ChevronDownIcon } from "lucide-react";
 
-import { useLogoutMutation, useSessionQuery } from "../queries/session.ts";
+import {
+  useLogoutMutation,
+  useSessionChannelsQuery,
+  useSessionQuery,
+  useSwitchChannelMutation,
+} from "../queries/session.ts";
 import { AddActivityDialog } from "./AddActivityDialog.tsx";
 import { PageContainer } from "./PageContainer.tsx";
 import { Button } from "./ui/button.tsx";
@@ -17,15 +22,55 @@ import {
 export const Header = () => {
   const { data, isPending } = useSessionQuery();
   const logout = useLogoutMutation();
+  const { data: channels } = useSessionChannelsQuery();
+  const switchChannel = useSwitchChannelMutation();
 
   const session = data?.session;
 
   return (
     <header className="border-b border-zinc-700">
       <PageContainer className="flex items-center justify-between px-4 py-3">
-        <Link to="/" className="font-semibold">
-          æme
-        </Link>
+        <div className="flex items-center gap-3">
+          <Link to="/" className="flex items-center gap-2 font-semibold">
+            <img src="/logo-big.png" alt="" className="size-6 rounded-sm" />
+            æme
+          </Link>
+          {session && channels && channels.length > 1 && (
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                render={
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    disabled={switchChannel.isPending}
+                    className="text-zinc-400"
+                  >
+                    #{session.channelName}
+                    <ChevronDownIcon className="size-4" />
+                  </Button>
+                }
+              />
+              <DropdownMenuContent align="start">
+                {channels.map((channel) => (
+                  <DropdownMenuItem
+                    key={channel.channelId}
+                    disabled={channel.channelId === session.channelId}
+                    onClick={() => switchChannel.mutate(channel.channelId)}
+                  >
+                    <CheckIcon
+                      className={
+                        channel.channelId === session.channelId
+                          ? "mr-2 size-4"
+                          : "mr-2 size-4 opacity-0"
+                      }
+                    />
+                    #{channel.name}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+        </div>
         <div className="flex items-center gap-3 text-sm text-zinc-400">
           {isPending ? (
             <span className="h-4 w-40 animate-pulse rounded bg-zinc-700" />
@@ -45,10 +90,14 @@ export const Header = () => {
                       }
                     />
                     <DropdownMenuContent>
-                      <div className="px-2 py-1.5 text-xs text-muted-foreground">
-                        #{session.channelName}
-                      </div>
-                      <DropdownMenuSeparator />
+                      {(!channels || channels.length <= 1) && (
+                        <>
+                          <div className="px-2 py-1.5 text-xs text-muted-foreground">
+                            #{session.channelName}
+                          </div>
+                          <DropdownMenuSeparator />
+                        </>
+                      )}
                       <DropdownMenuLinkItem render={<Link to="/profile" />}>
                         Profile
                       </DropdownMenuLinkItem>

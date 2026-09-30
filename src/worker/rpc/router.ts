@@ -17,9 +17,14 @@ import {
   getSessionMeta,
   SESSION_COOKIE_NAME,
   setSessionCookie,
+  switchSessionChannel,
 } from "../auth/session.ts";
-import { addChannelMember, listChannelMembers } from "../channels/channel.ts";
+import { addChannelMember, listChannelMembers, listChannelsForUser } from "../channels/channel.ts";
 import { getChannelInfo, getChannelMembers } from "../slack/channels.ts";
+
+const switchChannelSchema = z.object({
+  channelId: z.string().min(1),
+});
 
 const loginSchema = z.object({
   otp: z
@@ -101,6 +106,29 @@ export const apiRouter = new Hono<{ Bindings: Env }>()
     if (sessionId) await deleteSession(c.env, sessionId);
 
     deleteCookie(c, SESSION_COOKIE_NAME);
+    return c.json({ success: true });
+  })
+  .get("/session/channels", async (c) => {
+    const sessionId = getCookie(c, SESSION_COOKIE_NAME);
+    const session = sessionId ? await getSessionMeta(c.env, sessionId) : null;
+    if (!session) return c.json({ error: "Unauthorized" }, 401);
+
+    const channels = await listChannelsForUser(c.env, session.userId);
+    return c.json({ channels });
+  })
+  .post("/session/channel", zValidator("json", switchChannelSchema), async (c) => {
+    const sessionId = getCookie(c, SESSION_COOKIE_NAME);
+    if (!sessionId) return c.json({ error: "Unauthorized" }, 401);
+    const session = await getSessionMeta(c.env, sessionId);
+    if (!session) return c.json({ error: "Unauthorized" }, 401);
+
+    const { channelId } = c.req.valid("json");
+    const channels = await listChannelsForUser(c.env, session.userId);
+    if (!channels.some((channel) => channel.channelId === channelId)) {
+      return c.json({ error: "Not a member of this channel." }, 403);
+    }
+
+    await switchSessionChannel(c.env, sessionId, channelId);
     return c.json({ success: true });
   })
   .post("/login", zValidator("form", loginSchema), async (c) => {
