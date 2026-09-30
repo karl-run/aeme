@@ -35,7 +35,13 @@ type PostMessageResponse = {
  * action triggered the post. */
 export async function postMessage(
   env: Env,
-  params: { channel: string; text: string; blocks?: unknown[] },
+  params: {
+    channel: string;
+    text: string;
+    blocks?: unknown[];
+    unfurl_links?: boolean;
+    unfurl_media?: boolean;
+  },
 ): Promise<{ ts: string } | null> {
   const response = await fetch("https://slack.com/api/chat.postMessage", {
     method: "POST",
@@ -66,7 +72,14 @@ type UpdateMessageResponse = {
  * posting a fresh message. */
 export async function updateMessage(
   env: Env,
-  params: { channel: string; ts: string; text: string; blocks?: unknown[] },
+  params: {
+    channel: string;
+    ts: string;
+    text: string;
+    blocks?: unknown[];
+    unfurl_links?: boolean;
+    unfurl_media?: boolean;
+  },
 ): Promise<boolean> {
   const response = await fetch("https://slack.com/api/chat.update", {
     method: "POST",

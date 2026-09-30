@@ -108,12 +108,16 @@ const announceBooking = async (
     blocks: unknown[];
   },
 ) => {
+  // Both the location and "add to calendar" links are functional, not
+  // something worth a preview card for.
   if (params.existingTs) {
     const updated = await updateMessage(env, {
       channel: params.activityChannelId,
       ts: params.existingTs,
       text: params.text,
       blocks: params.blocks,
+      unfurl_links: false,
+      unfurl_media: false,
     });
     if (updated) return;
   }
@@ -122,6 +126,8 @@ const announceBooking = async (
     channel: params.activityChannelId,
     text: params.text,
     blocks: params.blocks,
+    unfurl_links: false,
+    unfurl_media: false,
   });
   if (posted) {
     const db = createDb(env);
