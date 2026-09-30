@@ -23,21 +23,60 @@ type Props = {
 export const AvailabilityDialog = ({ activity }: Props) => {
   const [open, setOpen] = useState(false);
   const [slots, setSlots] = useState<ActivitySlot[]>(activity.slots);
+  const [declined, setDeclined] = useState(activity.declined);
 
   const upsertAvailability = useUpsertAvailabilityMutation();
 
   const closed = activity.endTime !== null && activity.endTime < new Date().toISOString();
+
+  const handleChange = (next: ActivitySlot[]) => {
+    setSlots(next);
+    setDeclined(false);
+  };
+
+  const handleDecline = () => {
+    setSlots([]);
+    setDeclined(true);
+    upsertAvailability.mutate(
+      { activityId: activity.id, slots: [], declined: true },
+      { onSuccess: () => setOpen(false) },
+    );
+  };
+
+  const handleSave = () => {
+    upsertAvailability.mutate(
+      { activityId: activity.id, slots, declined: false },
+      { onSuccess: () => setOpen(false) },
+    );
+  };
 
   return (
     <Dialog
       open={open}
       onOpenChange={(next) => {
         setOpen(next);
-        if (next) setSlots(activity.slots);
+        if (next) {
+          setSlots(activity.slots);
+          setDeclined(activity.declined);
+        }
       }}
     >
-      <DialogTrigger render={<Button variant="outline" size="sm" />}>
-        {closed ? "View response" : activity.slots.length > 0 ? "Edit availability" : "I'm in"}
+      <DialogTrigger
+        render={
+          <Button
+            variant="outline"
+            size="sm"
+            className={activity.declined && !closed ? "text-destructive" : undefined}
+          />
+        }
+      >
+        {closed
+          ? "View response"
+          : activity.declined
+            ? "Can't make it"
+            : activity.slots.length > 0
+              ? "Edit availability"
+              : "I'm in"}
       </DialogTrigger>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
@@ -51,12 +90,18 @@ export const AvailabilityDialog = ({ activity }: Props) => {
           </DialogDescription>
         </DialogHeader>
 
+        {declined && !closed && (
+          <p className="text-sm text-destructive">
+            You've said you can't make it. Pick a day or hour below to change your mind.
+          </p>
+        )}
+
         <AvailabilityGrid
           activityId={activity.id}
           granularity={activity.slotGranularity}
           suggestedDates={activity.suggestedDates}
           value={slots}
-          onChange={setSlots}
+          onChange={handleChange}
           readOnly={closed}
           othersCount={activity.othersCount}
           bookedSlots={activity.bookedSlots}
@@ -69,18 +114,20 @@ export const AvailabilityDialog = ({ activity }: Props) => {
             {closed ? "Close" : "Cancel"}
           </DialogClose>
           {!closed && (
-            <Button
-              type="button"
-              disabled={upsertAvailability.isPending}
-              onClick={() =>
-                upsertAvailability.mutate(
-                  { activityId: activity.id, slots },
-                  { onSuccess: () => setOpen(false) },
-                )
-              }
-            >
-              {upsertAvailability.isPending ? "Saving…" : "Save"}
-            </Button>
+            <>
+              <Button
+                type="button"
+                variant="outline"
+                className="text-destructive"
+                disabled={upsertAvailability.isPending}
+                onClick={handleDecline}
+              >
+                Can't make it
+              </Button>
+              <Button type="button" disabled={upsertAvailability.isPending} onClick={handleSave}>
+                {upsertAvailability.isPending ? "Saving…" : "Save"}
+              </Button>
+            </>
           )}
         </DialogFooter>
 

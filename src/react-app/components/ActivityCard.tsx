@@ -7,6 +7,7 @@ import { BookingDetailsDialog } from "./BookingDetailsDialog.tsx";
 import { Button } from "./ui/button.tsx";
 
 const summarize = (activity: ActivityWithAvailability) => {
+  if (activity.declined) return "You can't make it";
   if (activity.slots.length === 0) return "Not answered yet";
 
   const days = new Set(activity.slots.map((slot) => slot.date)).size;

@@ -69,9 +69,15 @@ const activitySlotSchema = z
     path: ["to"],
   });
 
-const upsertAvailabilitySchema = z.object({
-  slots: z.array(activitySlotSchema),
-});
+const upsertAvailabilitySchema = z
+  .object({
+    slots: z.array(activitySlotSchema),
+    declined: z.boolean(),
+  })
+  .refine((data) => !data.declined || data.slots.length === 0, {
+    message: "Cannot decline while slots are selected.",
+    path: ["slots"],
+  });
 
 const addChannelMemberSchema = z.object({
   userId: z.string().min(1),
@@ -190,7 +196,7 @@ export const apiRouter = new Hono<{ Bindings: Env }>()
       return c.json({ error: "Not found" }, 404);
     }
 
-    const { slots } = c.req.valid("json");
+    const { slots, declined } = c.req.valid("json");
 
     if (activity.endTime && activity.endTime < new Date().toISOString()) {
       return c.json({ error: "This request has closed." }, 400);
@@ -207,6 +213,7 @@ export const apiRouter = new Hono<{ Bindings: Env }>()
     const availability = await upsertAvailability(c.env, {
       activityId,
       userId: session.userId,
+      declined,
       slots,
     });
 

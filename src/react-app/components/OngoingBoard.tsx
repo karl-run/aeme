@@ -105,7 +105,8 @@ const ActivityPickerCard = ({ activity, days }: CardProps) => {
     clearTimeout(saveTimerRef.current);
     saveTimerRef.current = setTimeout(() => {
       upsertAvailability.mutate(
-        { activityId: activity.id, slots: next },
+        // Persistent activities don't support declining — always false.
+        { activityId: activity.id, slots: next, declined: false },
         { onSettled: () => (dirtyRef.current = false) },
       );
     }, SAVE_DEBOUNCE_MS);

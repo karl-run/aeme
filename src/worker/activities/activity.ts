@@ -25,6 +25,7 @@ const buildActivitySuggestionMessage = (params: {
   suggestedDates: string[] | null;
   endTime: string;
   responders: string[];
+  decliners: string[];
 }) => {
   const formattedDates = params.suggestedDates
     ?.map((date) =>
@@ -64,10 +65,21 @@ const buildActivitySuggestionMessage = (params: {
         type: "mrkdwn",
         text:
           params.responders.length > 0
-            ? `👥 *Responses (${params.responders.length})*\n${params.responders.join(", ")}`
+            ? `👥 *Available (${params.responders.length})*\n${params.responders.join(", ")}`
             : "👥 _No responses yet._",
       },
     },
+    ...(params.decliners.length > 0
+      ? [
+          {
+            type: "section",
+            text: {
+              type: "mrkdwn",
+              text: `🚫 *Can't make it (${params.decliners.length})*\n${params.decliners.join(", ")}`,
+            },
+          },
+        ]
+      : []),
     {
       type: "context",
       elements: [
@@ -95,7 +107,11 @@ export const announceActivitySuggestion = async (env: Env, activityId: string): 
   if (!activity || activity.persistent) return;
 
   const availabilityRows = await db
-    .select({ userId: activityAvailabilityTable.userId, slots: activityAvailabilityTable.slots })
+    .select({
+      userId: activityAvailabilityTable.userId,
+      slots: activityAvailabilityTable.slots,
+      declined: activityAvailabilityTable.declined,
+    })
     .from(activityAvailabilityTable)
     .where(eq(activityAvailabilityTable.activityId, activityId));
 
@@ -105,6 +121,7 @@ export const announceActivitySuggestion = async (env: Env, activityId: string): 
       const days = new Set(row.slots.map((slot) => slot.date)).size;
       return `<@${row.userId}> (${days} day${days === 1 ? "" : "s"})`;
     });
+  const decliners = availabilityRows.filter((row) => row.declined).map((row) => `<@${row.userId}>`);
 
   const { text, blocks } = buildActivitySuggestionMessage({
     title: activity.title,
@@ -114,6 +131,7 @@ export const announceActivitySuggestion = async (env: Env, activityId: string): 
     // router's zod schema and the matching DB check constraint.
     endTime: activity.endTime!,
     responders,
+    decliners,
   });
 
   const ts = await postOrUpdateMessage(env, {
@@ -207,6 +225,7 @@ export const listActivitiesForChannel = async (env: Env, channelId: string, user
       idealMemberCount: activitiesTable.idealMemberCount,
       created: activitiesTable.created,
       slots: activityAvailabilityTable.slots,
+      declined: activityAvailabilityTable.declined,
     })
     .from(activitiesTable)
     .leftJoin(
@@ -226,6 +245,7 @@ export const listActivitiesForChannel = async (env: Env, channelId: string, user
           activityId: activityAvailabilityTable.activityId,
           userId: activityAvailabilityTable.userId,
           slots: activityAvailabilityTable.slots,
+          declined: activityAvailabilityTable.declined,
         })
         .from(activityAvailabilityTable)
         .where(inArray(activityAvailabilityTable.activityId, activityIds))
@@ -234,7 +254,7 @@ export const listActivitiesForChannel = async (env: Env, channelId: string, user
   const othersCountByActivity = new Map<string, Record<string, number>>();
   const respondentIdsByActivity = new Map<string, Set<string>>();
   for (const row of othersAvailability) {
-    if (row.slots.length > 0) {
+    if (row.slots.length > 0 || row.declined) {
       const respondents = respondentIdsByActivity.get(row.activityId) ?? new Set<string>();
       respondents.add(row.userId);
       respondentIdsByActivity.set(row.activityId, respondents);
@@ -316,6 +336,7 @@ export const listActivitiesForChannel = async (env: Env, channelId: string, user
   return rows.map((row) => ({
     ...row,
     slots: row.slots ?? [],
+    declined: row.declined ?? false,
     respondentCount: respondentIdsByActivity.get(row.id)?.size ?? 0,
     othersCount: othersCountByActivity.get(row.id) ?? {},
     bookedSlots: bookedSlotsByActivity.get(row.id) ?? {},

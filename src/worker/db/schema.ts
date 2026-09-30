@@ -121,10 +121,20 @@ export const activityAvailabilityTable = sqliteTable(
       .notNull()
       .references(() => usersTable.userId),
     slots: text({ mode: "json" }).notNull().$type<ActivitySlot[]>(),
+    /** Explicitly "I can't make it", as opposed to just not having answered
+     * yet — mutually exclusive with having any slots selected. Only
+     * surfaced for one-off activities; persistent ones always send `false`. */
+    declined: integer({ mode: "boolean" }).notNull().default(false),
     created: text().notNull(),
     updated: text().notNull(),
   },
-  (t) => [uniqueIndex("activity_availability_activity_user").on(t.activityId, t.userId)],
+  (t) => [
+    uniqueIndex("activity_availability_activity_user").on(t.activityId, t.userId),
+    check(
+      "activity_availability_declined_no_slots",
+      sql`${t.declined} = 0 OR json_array_length(${t.slots}) = 0`,
+    ),
+  ],
 );
 
 /** An actual booked occurrence of an activity — as opposed to `activity_availability`,
