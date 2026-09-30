@@ -1,9 +1,11 @@
-import { XIcon } from "lucide-react";
+import { format } from "date-fns";
+import { CalendarIcon, XIcon } from "lucide-react";
 import { type FormEvent, type KeyboardEvent, type ReactElement, useState } from "react";
 
 import { useCreateBookingMutation, useUpdateBookingMutation } from "../queries/bookings.ts";
 import { useChannelMembersQuery } from "../queries/channelMembers.ts";
 import { Button } from "./ui/button.tsx";
+import { Calendar } from "./ui/calendar.tsx";
 import { Checkbox } from "./ui/checkbox.tsx";
 import {
   Dialog,
@@ -17,7 +19,15 @@ import {
 } from "./ui/dialog.tsx";
 import { Input } from "./ui/input.tsx";
 import { Label } from "./ui/label.tsx";
+import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover.tsx";
 import { Textarea } from "./ui/textarea.tsx";
+
+const toDateStr = (d: Date) => {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+};
 
 const formatDateLabel = (date: string) =>
   new Date(`${date}T00:00:00`).toLocaleDateString(undefined, {
@@ -53,6 +63,7 @@ export const AddBookingDialog = ({ activityId, date, trigger, booking }: Props) 
   const isEdit = booking !== undefined;
 
   const [open, setOpen] = useState(false);
+  const [dateOpen, setDateOpen] = useState(false);
   const [bookingDate, setBookingDate] = useState(booking?.date ?? date ?? "");
   const [from, setFrom] = useState(booking?.from ?? "");
   const [to, setTo] = useState(booking?.to ?? "");
@@ -162,13 +173,32 @@ export const AddBookingDialog = ({ activityId, date, trigger, booking }: Props) 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="booking-date">Date</Label>
-            <Input
-              id="booking-date"
-              type="date"
-              value={bookingDate}
-              onChange={(e) => setBookingDate(e.target.value)}
-              required
-            />
+            <Popover open={dateOpen} onOpenChange={setDateOpen}>
+              <PopoverTrigger
+                render={
+                  <Button
+                    id="booking-date"
+                    type="button"
+                    variant="outline"
+                    className="justify-start font-normal"
+                  />
+                }
+              >
+                <CalendarIcon className="size-4" />
+                {bookingDate ? format(new Date(`${bookingDate}T00:00:00`), "PPP") : "Pick a date"}
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  required
+                  selected={bookingDate ? new Date(`${bookingDate}T00:00:00`) : undefined}
+                  onSelect={(next) => {
+                    setBookingDate(toDateStr(next));
+                    setDateOpen(false);
+                  }}
+                />
+              </PopoverContent>
+            </Popover>
           </div>
 
           <div className="flex gap-3">

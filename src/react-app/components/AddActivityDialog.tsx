@@ -1,10 +1,12 @@
-import { XIcon } from "lucide-react";
+import { CalendarIcon } from "lucide-react";
 import { type FormEvent, useState } from "react";
 
 import { useCreateActivityMutation } from "../queries/activities.ts";
 import { Button } from "./ui/button.tsx";
+import { Calendar } from "./ui/calendar.tsx";
 import { Input } from "./ui/input.tsx";
 import { Label } from "./ui/label.tsx";
+import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover.tsx";
 import {
   Sheet,
   SheetClose,
@@ -18,6 +20,16 @@ import {
 import { Tabs, TabsIndicator, TabsList, TabsPanel, TabsTab } from "./ui/tabs.tsx";
 import { Textarea } from "./ui/textarea.tsx";
 
+const toDateStr = (d: Date) => {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+};
+
+const formatShortDate = (date: string) =>
+  new Date(`${date}T00:00:00`).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+
 export const AddActivityDialog = () => {
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState("");
@@ -26,6 +38,7 @@ export const AddActivityDialog = () => {
   const [persistent, setPersistent] = useState(false);
   const [slotGranularity, setSlotGranularity] = useState<"day" | "hourly">("day");
   const [suggestedDates, setSuggestedDates] = useState<string[]>([]);
+  const [datesOpen, setDatesOpen] = useState(false);
   const [idealMemberCount, setIdealMemberCount] = useState("");
 
   const createActivity = useCreateActivityMutation();
@@ -43,8 +56,6 @@ export const AddActivityDialog = () => {
   const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
-    const cleanedSuggestedDates = [...new Set(suggestedDates.filter(Boolean))].sort();
-
     createActivity.mutate(
       {
         title,
@@ -52,8 +63,7 @@ export const AddActivityDialog = () => {
         endTime: persistent ? null : endTime || null,
         persistent,
         slotGranularity,
-        suggestedDates:
-          !persistent && cleanedSuggestedDates.length > 0 ? cleanedSuggestedDates : null,
+        suggestedDates: !persistent && suggestedDates.length > 0 ? suggestedDates : null,
         idealMemberCount: idealMemberCount ? Number(idealMemberCount) : null,
       },
       {
@@ -153,43 +163,36 @@ export const AddActivityDialog = () => {
               <div className="flex flex-col gap-1.5">
                 <Label>Suggested dates (optional)</Label>
                 <p className="text-xs text-muted-foreground">
-                  E.g. "either on the 12th, 14th or 16th". Leave empty to let people propose any
-                  date.
+                  Pick a few candidate dates, e.g. the 12th, 14th or 16th. Leave empty to let people
+                  propose any date.
                 </p>
-                <div className="flex flex-col gap-2">
-                  {suggestedDates.map((date, i) => (
-                    <div key={i} className="flex gap-2">
-                      <Input
-                        type="date"
-                        value={date}
-                        onChange={(e) =>
-                          setSuggestedDates((dates) =>
-                            dates.map((d, j) => (j === i ? e.target.value : d)),
-                          )
-                        }
-                      />
+                <Popover open={datesOpen} onOpenChange={setDatesOpen}>
+                  <PopoverTrigger
+                    render={
                       <Button
                         type="button"
-                        variant="ghost"
-                        size="icon-sm"
-                        aria-label="Remove date"
-                        onClick={() =>
-                          setSuggestedDates((dates) => dates.filter((_, j) => j !== i))
-                        }
-                      >
-                        <XIcon />
-                      </Button>
-                    </div>
-                  ))}
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setSuggestedDates((dates) => [...dates, ""])}
+                        variant="outline"
+                        className="justify-start font-normal"
+                      />
+                    }
                   >
-                    Add a suggested date
-                  </Button>
-                </div>
+                    <CalendarIcon className="size-4 shrink-0" />
+                    <span className="truncate">
+                      {suggestedDates.length > 0 ? (
+                        suggestedDates.map(formatShortDate).join(", ")
+                      ) : (
+                        <span className="text-muted-foreground">Pick dates</span>
+                      )}
+                    </span>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="multiple"
+                      selected={suggestedDates.map((date) => new Date(`${date}T00:00:00`))}
+                      onSelect={(dates) => setSuggestedDates((dates ?? []).map(toDateStr).sort())}
+                    />
+                  </PopoverContent>
+                </Popover>
               </div>
 
               <div className="flex flex-col gap-1.5">
