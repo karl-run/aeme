@@ -39,8 +39,9 @@ type EditableBooking = {
 
 type Props = {
   activityId: string;
-  /** YYYY-MM-DD. Fixed date for a new booking — ignored (and editable
-   * instead) when `booking` is set. */
+  /** YYYY-MM-DD. Pre-fills the date field for a new booking (still
+   * editable); omit to let the user pick one, e.g. from a standalone "Book"
+   * action not tied to a specific day. Ignored when `booking` is set. */
   date?: string;
   trigger: ReactElement;
   /** When set, the dialog edits this existing booking instead of creating a
@@ -153,22 +154,22 @@ export const AddBookingDialog = ({ activityId, date, trigger, booking }: Props) 
       <DialogContent>
         <DialogHeader>
           <DialogTitle>{isEdit ? "Edit booking" : "Add booking"}</DialogTitle>
-          <DialogDescription>{formatDateLabel(bookingDate)}</DialogDescription>
+          <DialogDescription>
+            {bookingDate ? formatDateLabel(bookingDate) : "Pick a date and time."}
+          </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          {isEdit && (
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="booking-date">Date</Label>
-              <Input
-                id="booking-date"
-                type="date"
-                value={bookingDate}
-                onChange={(e) => setBookingDate(e.target.value)}
-                required
-              />
-            </div>
-          )}
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="booking-date">Date</Label>
+            <Input
+              id="booking-date"
+              type="date"
+              value={bookingDate}
+              onChange={(e) => setBookingDate(e.target.value)}
+              required
+            />
+          </div>
 
           <div className="flex gap-3">
             <div className="flex flex-1 flex-col gap-1.5">

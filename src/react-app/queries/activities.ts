@@ -13,6 +13,11 @@ export const useActivitiesQuery = () =>
       const { activities } = await res.json();
       return activities;
     },
+    // Keeps respondent/attendee counts fresh while the dashboard is open and
+    // in focus, without relying on someone else's action to trigger a
+    // refetch — `refetchIntervalInBackground` defaults to false, so this
+    // pauses while the tab isn't focused.
+    refetchInterval: 10_000,
   });
 
 export type ActivityWithAvailability = NonNullable<
@@ -30,6 +35,7 @@ export const useCreateActivityMutation = () => {
       persistent: boolean;
       slotGranularity: "day" | "hourly";
       suggestedDates: string[] | null;
+      idealMemberCount: number | null;
     }) => {
       const res = await client.activities.$post({ json: params });
       if (!res.ok) throw new Error("Failed to create activity.");

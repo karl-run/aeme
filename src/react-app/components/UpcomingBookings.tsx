@@ -16,6 +16,8 @@ const formatChipDate = (date: string) =>
 type Props = {
   activityId: string;
   bookings: BookingSummary[];
+  /** Advisory headcount, shown in the badge as "N/ideal" when set. */
+  idealMemberCount?: number | null;
 };
 
 /** Horizontal, scrollable list of upcoming bookings — soonest booking is
@@ -26,7 +28,7 @@ type Props = {
  * mobile browsers — `justify-start` is the only variant with a normal,
  * universally-reliable scroll range. Clicking one opens its full details in
  * a modal. */
-export const UpcomingBookings = ({ activityId, bookings }: Props) => {
+export const UpcomingBookings = ({ activityId, bookings, idealMemberCount }: Props) => {
   const today = toDateStr(new Date());
 
   const upcoming = bookings
@@ -42,6 +44,7 @@ export const UpcomingBookings = ({ activityId, bookings }: Props) => {
           key={booking.id}
           activityId={activityId}
           booking={booking}
+          idealMemberCount={idealMemberCount}
           trigger={
             <button
               type="button"
@@ -51,8 +54,10 @@ export const UpcomingBookings = ({ activityId, bookings }: Props) => {
                 {formatChipDate(booking.date)} · {booking.from}
               </span>
               {booking.attendeeNames.length > 0 && (
-                <span className="flex size-4 items-center justify-center rounded-full bg-green-600 text-[9px] font-medium text-white">
-                  {booking.attendeeNames.length}
+                <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-green-600 px-1 text-[9px] font-medium text-white">
+                  {idealMemberCount
+                    ? `${booking.attendeeNames.length}/${idealMemberCount}`
+                    : booking.attendeeNames.length}
                 </span>
               )}
             </button>

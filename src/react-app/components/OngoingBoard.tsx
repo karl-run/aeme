@@ -151,7 +151,11 @@ const ActivityPickerCard = ({ activity, days }: CardProps) => {
             <p className="text-sm text-muted-foreground">{activity.description}</p>
           )}
         </div>
-        <UpcomingBookings activityId={activity.id} bookings={activity.bookings} />
+        <UpcomingBookings
+          activityId={activity.id}
+          bookings={activity.bookings}
+          idealMemberCount={activity.idealMemberCount}
+        />
       </div>
 
       <div
@@ -230,6 +234,7 @@ const ActivityPickerCard = ({ activity, days }: CardProps) => {
                     <BookingInfoPopover
                       activityId={activity.id}
                       bookings={bookingsForDay(activity.bookings, dateStr)}
+                      idealMemberCount={activity.idealMemberCount}
                       className="absolute -bottom-2 -left-2"
                     />
                   )}
@@ -311,6 +316,7 @@ const ActivityPickerCard = ({ activity, days }: CardProps) => {
                       <BookingInfoPopover
                         activityId={activity.id}
                         bookings={[booking]}
+                        idealMemberCount={activity.idealMemberCount}
                         className="absolute -top-2 -left-2"
                       />
                     </div>

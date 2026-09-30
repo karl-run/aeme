@@ -36,6 +36,7 @@ const createActivitySchema = z
     persistent: z.boolean(),
     slotGranularity: z.enum(["day", "hourly"]),
     suggestedDates: z.array(z.iso.date()).min(1).nullable(),
+    idealMemberCount: z.number().int().positive().nullable(),
   })
   .refine((data) => data.persistent || data.endTime !== null, {
     message: "End time is required unless the activity is persistent.",
@@ -120,8 +121,15 @@ export const apiRouter = new Hono<{ Bindings: Env }>()
     const session = sessionId ? await getSessionMeta(c.env, sessionId) : null;
     if (!session) return c.json({ error: "Unauthorized" }, 401);
 
-    const { title, description, endTime, persistent, slotGranularity, suggestedDates } =
-      c.req.valid("json");
+    const {
+      title,
+      description,
+      endTime,
+      persistent,
+      slotGranularity,
+      suggestedDates,
+      idealMemberCount,
+    } = c.req.valid("json");
     const activity = await createActivity(c.env, {
       channelId: session.channelId,
       title,
@@ -130,6 +138,7 @@ export const apiRouter = new Hono<{ Bindings: Env }>()
       persistent,
       slotGranularity,
       suggestedDates,
+      idealMemberCount,
     });
 
     return c.json({ activity });

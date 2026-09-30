@@ -83,6 +83,10 @@ export const activitiesTable = sqliteTable(
       .notNull()
       .default("day"),
     suggestedDates: text("suggested_dates", { mode: "json" }).$type<string[]>(),
+    /** Advisory headcount the organizer is aiming for — purely informational
+     * (e.g. shown as "5/8 going"), never enforced as a cap on responses or
+     * booking attendees. */
+    idealMemberCount: integer("ideal_member_count"),
     archived: integer({ mode: "boolean" }).notNull().default(false),
     created: text().notNull(),
   },
@@ -92,6 +96,10 @@ export const activitiesTable = sqliteTable(
     check(
       "activities_persistent_no_suggested_dates",
       sql`${t.persistent} = 0 OR ${t.suggestedDates} IS NULL`,
+    ),
+    check(
+      "activities_ideal_member_count_positive",
+      sql`${t.idealMemberCount} IS NULL OR ${t.idealMemberCount} > 0`,
     ),
   ],
 );

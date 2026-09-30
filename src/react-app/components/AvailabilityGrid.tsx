@@ -60,6 +60,8 @@ type Props = {
    * `othersCount`. */
   bookedSlots?: Record<string, boolean>;
   bookings?: ActivityWithAvailability["bookings"];
+  /** Advisory headcount, shown alongside a booking's attendee count. */
+  idealMemberCount?: number | null;
 };
 
 export const AvailabilityGrid = ({
@@ -72,6 +74,7 @@ export const AvailabilityGrid = ({
   othersCount = {},
   bookedSlots = {},
   bookings = [],
+  idealMemberCount,
 }: Props) => {
   const today = startOfDay(new Date());
 
@@ -203,6 +206,7 @@ export const AvailabilityGrid = ({
                   <BookingInfoPopover
                     activityId={activityId}
                     bookings={bookingsForDay(bookings, dateStr)}
+                    idealMemberCount={idealMemberCount}
                     className="absolute -bottom-2 -left-2"
                   />
                 )}
@@ -319,6 +323,7 @@ export const AvailabilityGrid = ({
                     <BookingInfoPopover
                       activityId={activityId}
                       bookings={[booking]}
+                      idealMemberCount={idealMemberCount}
                       className="absolute -top-2 -left-2"
                     />
                   </div>

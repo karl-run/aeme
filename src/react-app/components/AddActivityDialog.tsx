@@ -26,6 +26,7 @@ export const AddActivityDialog = () => {
   const [persistent, setPersistent] = useState(false);
   const [slotGranularity, setSlotGranularity] = useState<"day" | "hourly">("day");
   const [suggestedDates, setSuggestedDates] = useState<string[]>([]);
+  const [idealMemberCount, setIdealMemberCount] = useState("");
 
   const createActivity = useCreateActivityMutation();
 
@@ -36,6 +37,7 @@ export const AddActivityDialog = () => {
     setPersistent(false);
     setSlotGranularity("day");
     setSuggestedDates([]);
+    setIdealMemberCount("");
   };
 
   const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
@@ -52,6 +54,7 @@ export const AddActivityDialog = () => {
         slotGranularity,
         suggestedDates:
           !persistent && cleanedSuggestedDates.length > 0 ? cleanedSuggestedDates : null,
+        idealMemberCount: idealMemberCount ? Number(idealMemberCount) : null,
       },
       {
         onSuccess: () => {
@@ -119,6 +122,21 @@ export const AddActivityDialog = () => {
                 Specific hours
               </label>
             </div>
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="activity-ideal-member-count">Ideal number of people (optional)</Label>
+            <Input
+              id="activity-ideal-member-count"
+              type="number"
+              min={1}
+              value={idealMemberCount}
+              onChange={(e) => setIdealMemberCount(e.target.value)}
+              placeholder="e.g. 8"
+            />
+            <p className="text-xs text-muted-foreground">
+              Just shown alongside the count — doesn't limit who can join.
+            </p>
           </div>
 
           <Tabs

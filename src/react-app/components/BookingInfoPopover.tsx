@@ -14,9 +14,16 @@ type Props = {
   activityId: string;
   bookings: BookingSummary[];
   className?: string;
+  /** Advisory headcount, shown alongside the attendee count as "N/ideal". */
+  idealMemberCount?: number | null;
 };
 
-export const BookingInfoPopover = ({ activityId, bookings, className }: Props) => {
+export const BookingInfoPopover = ({
+  activityId,
+  bookings,
+  className,
+  idealMemberCount,
+}: Props) => {
   const { data } = useSessionQuery();
   const userId = data?.session?.userId;
 
@@ -88,6 +95,7 @@ export const BookingInfoPopover = ({ activityId, bookings, className }: Props) =
               )}
               <p className="text-xs text-muted-foreground">Booked by {booking.createdByName}</p>
               <p className="text-xs text-muted-foreground">
+                {idealMemberCount && `(${booking.attendeeNames.length}/${idealMemberCount}) `}
                 {booking.attendeeNames.length > 0
                   ? `Joining: ${booking.attendeeNames.join(", ")}`
                   : "No one else joining yet."}

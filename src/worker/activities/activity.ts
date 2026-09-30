@@ -36,6 +36,7 @@ export const createActivity = async (
     persistent: boolean;
     slotGranularity: "day" | "hourly";
     suggestedDates: string[] | null;
+    idealMemberCount: number | null;
   },
 ) => {
   const db = createDb(env);
@@ -51,6 +52,7 @@ export const createActivity = async (
       persistent: params.persistent,
       slotGranularity: params.slotGranularity,
       suggestedDates: params.persistent ? null : params.suggestedDates,
+      idealMemberCount: params.idealMemberCount,
       archived: false,
       created: new Date().toISOString(),
     })
@@ -79,6 +81,7 @@ export const listActivitiesForChannel = async (env: Env, channelId: string, user
       persistent: activitiesTable.persistent,
       slotGranularity: activitiesTable.slotGranularity,
       suggestedDates: activitiesTable.suggestedDates,
+      idealMemberCount: activitiesTable.idealMemberCount,
       created: activitiesTable.created,
       slots: activityAvailabilityTable.slots,
     })
@@ -106,7 +109,14 @@ export const listActivitiesForChannel = async (env: Env, channelId: string, user
     : [];
 
   const othersCountByActivity = new Map<string, Record<string, number>>();
+  const respondentIdsByActivity = new Map<string, Set<string>>();
   for (const row of othersAvailability) {
+    if (row.slots.length > 0) {
+      const respondents = respondentIdsByActivity.get(row.activityId) ?? new Set<string>();
+      respondents.add(row.userId);
+      respondentIdsByActivity.set(row.activityId, respondents);
+    }
+
     if (row.userId === userId) continue;
 
     const counts = othersCountByActivity.get(row.activityId) ?? {};
@@ -183,6 +193,7 @@ export const listActivitiesForChannel = async (env: Env, channelId: string, user
   return rows.map((row) => ({
     ...row,
     slots: row.slots ?? [],
+    respondentCount: respondentIdsByActivity.get(row.id)?.size ?? 0,
     othersCount: othersCountByActivity.get(row.id) ?? {},
     bookedSlots: bookedSlotsByActivity.get(row.id) ?? {},
     bookings: (bookingsByActivity.get(row.id) ?? []).map((booking) => ({

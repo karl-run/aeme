@@ -61,6 +61,7 @@ export const AvailabilityDialog = ({ activity }: Props) => {
           othersCount={activity.othersCount}
           bookedSlots={activity.bookedSlots}
           bookings={activity.bookings}
+          idealMemberCount={activity.idealMemberCount}
         />
 
         <DialogFooter>

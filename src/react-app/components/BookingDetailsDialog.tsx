@@ -29,9 +29,11 @@ type Props = {
   activityId: string;
   booking: BookingSummary;
   trigger: ReactElement;
+  /** Advisory headcount, shown alongside the attendee count as "N/ideal". */
+  idealMemberCount?: number | null;
 };
 
-export const BookingDetailsDialog = ({ activityId, booking, trigger }: Props) => {
+export const BookingDetailsDialog = ({ activityId, booking, trigger, idealMemberCount }: Props) => {
   const { data } = useSessionQuery();
   const isOwner = data?.session?.userId === booking.createdBy;
 
@@ -64,7 +66,10 @@ export const BookingDetailsDialog = ({ activityId, booking, trigger }: Props) =>
             <span className="text-muted-foreground">Booked by</span> {booking.createdByName}
           </p>
           <p>
-            <span className="text-muted-foreground">Joining:</span>{" "}
+            <span className="text-muted-foreground">
+              Joining
+              {idealMemberCount ? ` (${booking.attendeeNames.length}/${idealMemberCount})` : ""}:
+            </span>{" "}
             {booking.attendeeNames.length > 0
               ? booking.attendeeNames.join(", ")
               : "No one else yet."}
