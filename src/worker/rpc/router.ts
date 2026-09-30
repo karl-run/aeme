@@ -10,6 +10,7 @@ import {
 } from "../activities/activity.ts";
 import { upsertAvailability } from "../activities/availability.ts";
 import { createBooking, getBookingById, updateBooking } from "../activities/booking.ts";
+import { buildBookingIcs } from "../activities/ics.ts";
 import { completeLogin } from "../auth/otp.ts";
 import {
   deleteSession,
@@ -290,7 +291,34 @@ export const apiRouter = new Hono<{ Bindings: Env }>()
 
       return c.json({ success: true });
     },
-  );
+  )
+  .get("/bookings/:bookingId/ics", async (c) => {
+    // Deliberately public (no session check): the bookingId is an
+    // unguessable UUID, and calendar apps/browsers fetching this link won't
+    // have our session cookie anyway.
+    const bookingId = c.req.param("bookingId");
+    const booking = await getBookingById(c.env, bookingId);
+    if (!booking) return c.notFound();
+
+    const activity = await getActivityById(c.env, booking.activityId);
+    if (!activity) return c.notFound();
+
+    const ics = buildBookingIcs({
+      bookingId: booking.id,
+      created: booking.created,
+      activityTitle: activity.title,
+      date: booking.date,
+      from: booking.from,
+      to: booking.to,
+      description: booking.description,
+      location: booking.location,
+    });
+
+    return c.body(ics, 200, {
+      "Content-Type": "text/calendar; charset=utf-8",
+      "Content-Disposition": `attachment; filename="booking.ics"`,
+    });
+  });
 
 if (import.meta.env.DEV) {
   apiRouter.post("/dev/login", async (c) => {

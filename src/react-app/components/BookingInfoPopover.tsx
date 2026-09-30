@@ -92,6 +92,12 @@ export const BookingInfoPopover = ({ activityId, bookings, className }: Props) =
                   ? `Joining: ${booking.attendeeNames.join(", ")}`
                   : "No one else joining yet."}
               </p>
+              <a
+                href={`/api/bookings/${booking.id}/ics`}
+                className="text-xs text-muted-foreground underline"
+              >
+                Add to calendar
+              </a>
             </div>
           ))}
         </div>

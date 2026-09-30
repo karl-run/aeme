@@ -1,5 +1,6 @@
 import { eq } from "drizzle-orm";
 
+import { BASE_URL } from "../constants.ts";
 import { createDb } from "../db/db.ts";
 import { activityBookingAttendeesTable, activityBookingsTable } from "../db/schema.ts";
 import { postMessage, updateMessage } from "../slack/messages.ts";
@@ -20,6 +21,7 @@ const isUrl = (value: string) => {
 };
 
 const buildBookingMessage = (params: {
+  bookingId: string;
   activityTitle: string;
   date: string;
   from: string;
@@ -78,6 +80,15 @@ const buildBookingMessage = (params: {
     {
       type: "section",
       text: { type: "mrkdwn", text: `👥 *Joining*\n${attendeeList}` },
+    },
+    {
+      type: "context",
+      elements: [
+        {
+          type: "mrkdwn",
+          text: `🗓️ <${BASE_URL}/api/bookings/${params.bookingId}/ics|Add to calendar>`,
+        },
+      ],
     },
   ];
 
@@ -178,6 +189,7 @@ export const createBooking = async (
   await db.batch([bookingInsert, ...attendeeInserts, ...guestInserts]);
 
   const { text, blocks } = buildBookingMessage({
+    bookingId,
     activityTitle: params.activityTitle,
     date: params.date,
     from: params.from,
@@ -251,6 +263,7 @@ export const updateBooking = async (
   await db.batch([bookingUpdate, attendeeDelete, ...attendeeInserts, ...guestInserts]);
 
   const { text, blocks } = buildBookingMessage({
+    bookingId: params.bookingId,
     activityTitle: params.activityTitle,
     date: params.date,
     from: params.from,

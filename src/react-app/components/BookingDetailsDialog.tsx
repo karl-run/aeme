@@ -72,6 +72,13 @@ export const BookingDetailsDialog = ({ activityId, booking, trigger }: Props) =>
         </div>
 
         <DialogFooter>
+          <Button
+            type="button"
+            variant="outline"
+            render={<a href={`/api/bookings/${booking.id}/ics`} />}
+          >
+            Add to calendar
+          </Button>
           <DialogClose render={<Button type="button" variant="outline" />}>Close</DialogClose>
           {isOwner && (
             <AddBookingDialog
