@@ -1,5 +1,6 @@
 import { and, eq, inArray, sql } from "drizzle-orm";
 
+import { BASE_URL } from "../constants.ts";
 import { createDb } from "../db/db.ts";
 import {
   activitiesTable,
@@ -9,8 +10,126 @@ import {
   type ActivitySlot,
   usersTable,
 } from "../db/schema.ts";
+import { postOrUpdateMessage } from "../slack/messages.ts";
 
 const timeToMinutes = (time: string) => Number(time.slice(0, 2)) * 60 + Number(time.slice(3, 5));
+
+/** Builds the Slack `text` fallback + Block Kit `blocks` announcing a new
+ * one-off activity suggestion — persistent activities aren't announced this
+ * way, they're just always visible on the dashboard. `responders` is a list
+ * of already-formatted `<@userId> (N days)` strings, rebuilt and re-posted
+ * (via `chat.update`) each time someone responds. */
+const buildActivitySuggestionMessage = (params: {
+  title: string;
+  description: string;
+  suggestedDates: string[] | null;
+  endTime: string;
+  responders: string[];
+}) => {
+  const formattedDates = params.suggestedDates
+    ?.map((date) =>
+      new Date(`${date}T00:00:00`).toLocaleDateString("en-US", {
+        weekday: "short",
+        month: "short",
+        day: "numeric",
+      }),
+    )
+    .join(", ");
+
+  const deadline = new Date(params.endTime).toLocaleString("en-US", {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+
+  const text = `📋 New suggestion: ${params.title}`;
+
+  const blocks = [
+    { type: "header", text: { type: "plain_text", text: `📋 ${params.title}`, emoji: true } },
+    ...(params.description
+      ? [{ type: "section", text: { type: "mrkdwn", text: params.description } }]
+      : []),
+    {
+      type: "section",
+      text: {
+        type: "mrkdwn",
+        text: formattedDates ? `📅 Suggested: ${formattedDates}` : "📅 Propose any date that works",
+      },
+    },
+    {
+      type: "section",
+      text: {
+        type: "mrkdwn",
+        text:
+          params.responders.length > 0
+            ? `👥 *Responses (${params.responders.length})*\n${params.responders.join(", ")}`
+            : "👥 _No responses yet._",
+      },
+    },
+    {
+      type: "context",
+      elements: [
+        { type: "mrkdwn", text: `⏰ Respond by ${deadline}` },
+        { type: "mrkdwn", text: `<${BASE_URL}|Open æme to respond>` },
+      ],
+    },
+  ];
+
+  return { text, blocks };
+};
+
+/** (Re-)posts the Slack announcement for a one-off activity's suggestion,
+ * reflecting the current set of responses — edited in place via
+ * `chat.update` once a post exists. No-ops for persistent activities, which
+ * aren't announced this way. Call after creating the activity and again
+ * whenever someone upserts their availability. */
+export const announceActivitySuggestion = async (env: Env, activityId: string): Promise<void> => {
+  const db = createDb(env);
+
+  const [activity] = await db
+    .select()
+    .from(activitiesTable)
+    .where(eq(activitiesTable.id, activityId));
+  if (!activity || activity.persistent) return;
+
+  const availabilityRows = await db
+    .select({ userId: activityAvailabilityTable.userId, slots: activityAvailabilityTable.slots })
+    .from(activityAvailabilityTable)
+    .where(eq(activityAvailabilityTable.activityId, activityId));
+
+  const responders = availabilityRows
+    .filter((row) => row.slots.length > 0)
+    .map((row) => {
+      const days = new Set(row.slots.map((slot) => slot.date)).size;
+      return `<@${row.userId}> (${days} day${days === 1 ? "" : "s"})`;
+    });
+
+  const { text, blocks } = buildActivitySuggestionMessage({
+    title: activity.title,
+    description: activity.description,
+    suggestedDates: activity.suggestedDates,
+    // Guaranteed non-null for a non-persistent activity — enforced by the
+    // router's zod schema and the matching DB check constraint.
+    endTime: activity.endTime!,
+    responders,
+  });
+
+  const ts = await postOrUpdateMessage(env, {
+    channel: activity.channelId,
+    existingTs: activity.slackMessageTs,
+    text,
+    blocks,
+  });
+
+  if (ts) {
+    await db
+      .update(activitiesTable)
+      .set({ slackMessageTs: ts })
+      .where(eq(activitiesTable.id, activityId));
+  }
+};
 
 /** Key for an availability slot in an `othersCount` map: the date alone for
  * day-granularity activities, or `date|hour` per hour cell the slot's
@@ -58,7 +177,11 @@ export const createActivity = async (
     })
     .returning();
 
-  return activity;
+  await announceActivitySuggestion(env, activity.id);
+
+  // Re-fetch rather than return the pre-announcement row: the announcement
+  // may have just written `slackMessageTs` onto it.
+  return getActivityById(env, activity.id);
 };
 
 export const getActivityById = async (env: Env, id: string) => {

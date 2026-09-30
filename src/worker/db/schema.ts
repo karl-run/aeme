@@ -87,6 +87,12 @@ export const activitiesTable = sqliteTable(
      * (e.g. shown as "5/8 going"), never enforced as a cap on responses or
      * booking attendees. */
     idealMemberCount: integer("ideal_member_count"),
+    /** Slack message timestamp of the suggestion announcement for a
+     * non-persistent activity (see `activity_bookings.slack_message_ts` for
+     * the analogous field on a booking), so it can be edited in place
+     * instead of re-posted. Null for persistent activities, which aren't
+     * announced this way. */
+    slackMessageTs: text("slack_message_ts"),
     archived: integer({ mode: "boolean" }).notNull().default(false),
     created: text().notNull(),
   },

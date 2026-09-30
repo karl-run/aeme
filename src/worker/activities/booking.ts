@@ -3,7 +3,7 @@ import { eq } from "drizzle-orm";
 import { BASE_URL } from "../constants.ts";
 import { createDb } from "../db/db.ts";
 import { activityBookingAttendeesTable, activityBookingsTable } from "../db/schema.ts";
-import { postMessage, updateMessage } from "../slack/messages.ts";
+import { postOrUpdateMessage } from "../slack/messages.ts";
 
 /** Builds the Slack `text` fallback + Block Kit `blocks` for a booking
  * announcement. Channel members are tagged via Slack's `<@userId>` mention
@@ -96,44 +96,35 @@ const buildBookingMessage = (params: {
 };
 
 /** Posts (or edits, if `existingTs` is given) the Slack announcement for a
- * booking. Falls back to posting a fresh message if editing fails (e.g. the
- * original was deleted), storing the new `ts` either way. */
+ * booking. A one-off activity's booking is posted as a broadcasted reply in
+ * its suggestion thread (`activityThreadTs`, see `activity.slackMessageTs`)
+ * rather than top-level — a persistent activity has no suggestion post, so
+ * `activityThreadTs` is null and it posts top-level like before. */
 const announceBooking = async (
   env: Env,
   params: {
     bookingId: string;
     activityChannelId: string;
+    activityThreadTs: string | null;
     existingTs: string | null;
     text: string;
     blocks: unknown[];
   },
 ) => {
-  // Both the location and "add to calendar" links are functional, not
-  // something worth a preview card for.
-  if (params.existingTs) {
-    const updated = await updateMessage(env, {
-      channel: params.activityChannelId,
-      ts: params.existingTs,
-      text: params.text,
-      blocks: params.blocks,
-      unfurl_links: false,
-      unfurl_media: false,
-    });
-    if (updated) return;
-  }
-
-  const posted = await postMessage(env, {
+  const ts = await postOrUpdateMessage(env, {
     channel: params.activityChannelId,
+    existingTs: params.existingTs,
     text: params.text,
     blocks: params.blocks,
-    unfurl_links: false,
-    unfurl_media: false,
+    thread_ts: params.activityThreadTs ?? undefined,
+    reply_broadcast: params.activityThreadTs !== null,
   });
-  if (posted) {
+
+  if (ts) {
     const db = createDb(env);
     await db
       .update(activityBookingsTable)
-      .set({ slackMessageTs: posted.ts })
+      .set({ slackMessageTs: ts })
       .where(eq(activityBookingsTable.id, params.bookingId));
   }
 };
@@ -155,6 +146,7 @@ export const createBooking = async (
     activityId: string;
     activityTitle: string;
     activityChannelId: string;
+    activityThreadTs: string | null;
     createdBy: string;
     date: string;
     from: string;
@@ -209,6 +201,7 @@ export const createBooking = async (
   await announceBooking(env, {
     bookingId,
     activityChannelId: params.activityChannelId,
+    activityThreadTs: params.activityThreadTs,
     existingTs: null,
     text,
     blocks,
@@ -223,6 +216,7 @@ export const updateBooking = async (
     bookingId: string;
     activityTitle: string;
     activityChannelId: string;
+    activityThreadTs: string | null;
     createdBy: string;
     date: string;
     from: string;
@@ -283,6 +277,7 @@ export const updateBooking = async (
   await announceBooking(env, {
     bookingId: params.bookingId,
     activityChannelId: params.activityChannelId,
+    activityThreadTs: params.activityThreadTs,
     existingTs: params.slackMessageTs,
     text,
     blocks,

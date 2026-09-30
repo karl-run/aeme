@@ -1,5 +1,6 @@
 import { createDb } from "../db/db.ts";
 import { activityAvailabilityTable, type ActivitySlot } from "../db/schema.ts";
+import { announceActivitySuggestion } from "./activity.ts";
 
 export const upsertAvailability = async (
   env: Env,
@@ -23,6 +24,10 @@ export const upsertAvailability = async (
       set: { slots: params.slots, updated: now },
     })
     .returning();
+
+  // No-ops for a persistent activity — only one-off suggestions are
+  // announced to Slack.
+  await announceActivitySuggestion(env, params.activityId);
 
   return availability;
 };

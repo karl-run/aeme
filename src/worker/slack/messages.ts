@@ -41,6 +41,10 @@ export async function postMessage(
     blocks?: unknown[];
     unfurl_links?: boolean;
     unfurl_media?: boolean;
+    /** Parent message `ts` to post this as a threaded reply to. */
+    thread_ts?: string;
+    /** With `thread_ts`: also shows the reply in the main channel feed. */
+    reply_broadcast?: boolean;
   },
 ): Promise<{ ts: string } | null> {
   const response = await fetch("https://slack.com/api/chat.postMessage", {
@@ -98,4 +102,45 @@ export async function updateMessage(
   }
 
   return true;
+}
+
+/** Edits a message in place (via `chat.update`) if `existingTs` is given,
+ * falling back to a fresh post if there's no existing message or the edit
+ * fails (e.g. the original was deleted). Returns the `ts` the caller should
+ * persist for next time, or null if nothing needs to change (an edit
+ * succeeded, so the already-stored ts is still valid). */
+export async function postOrUpdateMessage(
+  env: Env,
+  params: {
+    channel: string;
+    existingTs: string | null;
+    text: string;
+    blocks?: unknown[];
+    thread_ts?: string;
+    reply_broadcast?: boolean;
+  },
+): Promise<string | null> {
+  if (params.existingTs) {
+    const updated = await updateMessage(env, {
+      channel: params.channel,
+      ts: params.existingTs,
+      text: params.text,
+      blocks: params.blocks,
+      unfurl_links: false,
+      unfurl_media: false,
+    });
+    if (updated) return null;
+  }
+
+  const posted = await postMessage(env, {
+    channel: params.channel,
+    text: params.text,
+    blocks: params.blocks,
+    unfurl_links: false,
+    unfurl_media: false,
+    thread_ts: params.thread_ts,
+    reply_broadcast: params.reply_broadcast,
+  });
+
+  return posted?.ts ?? null;
 }
