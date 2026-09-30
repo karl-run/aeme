@@ -30,5 +30,18 @@
       "enabled": true,
       "previews_enabled": false
     }
-  ]
+  ],
+  "env": {
+    "dev": {
+      "routes": [
+        {
+          "pattern": "beta.xn--me-0ia.karl.run",
+          "zone_name": "karl.run",
+          "custom_domain": true,
+          "enabled": true,
+          "previews_enabled": false
+        }
+      ]
+    }
+  }
 }
