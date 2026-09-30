@@ -71,6 +71,7 @@ const createBookingSchema = z
     from: z.string().regex(/^\d{2}:\d{2}$/),
     to: z.string().regex(/^\d{2}:\d{2}$/),
     attendeeUserIds: z.array(z.string()),
+    guestNames: z.array(z.string().trim().min(1)),
   })
   .refine((data) => data.from < data.to, {
     message: "from must be before to",
@@ -184,7 +185,7 @@ export const apiRouter = new Hono<{ Bindings: Env }>()
       return c.json({ error: "Not found" }, 404);
     }
 
-    const { date, from, to, attendeeUserIds } = c.req.valid("json");
+    const { date, from, to, attendeeUserIds, guestNames } = c.req.valid("json");
 
     const members = await listChannelMembers(c.env, session.channelId);
     const memberIds = new Set(members.map((member) => member.userId));
@@ -201,6 +202,7 @@ export const apiRouter = new Hono<{ Bindings: Env }>()
       from,
       to,
       attendeeUserIds,
+      guestNames,
     });
 
     return c.json({ booking });
@@ -229,7 +231,7 @@ export const apiRouter = new Hono<{ Bindings: Env }>()
         return c.json({ error: "Only the booking's creator can edit it." }, 403);
       }
 
-      const { date, from, to, attendeeUserIds } = c.req.valid("json");
+      const { date, from, to, attendeeUserIds, guestNames } = c.req.valid("json");
 
       const members = await listChannelMembers(c.env, session.channelId);
       const memberIds = new Set(members.map((member) => member.userId));
@@ -246,6 +248,7 @@ export const apiRouter = new Hono<{ Bindings: Env }>()
         from,
         to,
         attendeeUserIds,
+        guestNames,
         slackMessageTs: booking.slackMessageTs,
       });
 

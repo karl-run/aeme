@@ -68,6 +68,7 @@ export const BookingDetailsDialog = ({ activityId, booking, trigger }: Props) =>
                 from: booking.from,
                 to: booking.to,
                 attendeeUserIds: booking.attendeeUserIds,
+                guestNames: booking.guestNames,
               }}
               trigger={<Button type="button">Edit</Button>}
             />

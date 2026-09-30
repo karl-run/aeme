@@ -13,6 +13,7 @@ export const useCreateBookingMutation = () => {
       from: string;
       to: string;
       attendeeUserIds: string[];
+      guestNames: string[];
     }) => {
       const res = await client.activities[":id"].bookings.$post({
         param: { id: params.activityId },
@@ -21,6 +22,7 @@ export const useCreateBookingMutation = () => {
           from: params.from,
           to: params.to,
           attendeeUserIds: params.attendeeUserIds,
+          guestNames: params.guestNames,
         },
       });
       if (!res.ok) throw new Error("Failed to create booking.");
@@ -43,6 +45,7 @@ export const useUpdateBookingMutation = () => {
       from: string;
       to: string;
       attendeeUserIds: string[];
+      guestNames: string[];
     }) => {
       const res = await client.activities[":id"].bookings[":bookingId"].$put({
         param: { id: params.activityId, bookingId: params.bookingId },
@@ -51,6 +54,7 @@ export const useUpdateBookingMutation = () => {
           from: params.from,
           to: params.to,
           attendeeUserIds: params.attendeeUserIds,
+          guestNames: params.guestNames,
         },
       });
       if (!res.ok) throw new Error("Failed to update booking.");

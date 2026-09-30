@@ -2,13 +2,14 @@ import { eq } from "drizzle-orm";
 
 import { createDb } from "../db/db.ts";
 import { activityBookingAttendeesTable, activityBookingsTable } from "../db/schema.ts";
-// @ts-ignore
 import { postMessage, updateMessage } from "../slack/messages.ts";
 
 /** Builds the Slack `text` fallback + Block Kit `blocks` for a booking
- * announcement. Attendees (and the creator) are tagged via Slack's `<@userId>`
- * mention syntax — Slack resolves the display name/avatar itself, so no name
- * lookup is needed here, and it also actually pings each person. */
+ * announcement. Channel members are tagged via Slack's `<@userId>` mention
+ * syntax (Slack resolves the display name/avatar itself, and it actually
+ * pings them); guests with no Slack account are listed by plain name only —
+ * never wrapped in `<@…>`, since that syntax only resolves for real Slack
+ * user IDs. */
 const buildBookingMessage = (params: {
   activityTitle: string;
   date: string;
@@ -16,6 +17,7 @@ const buildBookingMessage = (params: {
   to: string;
   createdBy: string;
   attendeeUserIds: string[];
+  guestNames: string[];
 }) => {
   const formattedDate = new Date(`${params.date}T00:00:00`).toLocaleDateString("en-US", {
     weekday: "long",
@@ -23,9 +25,13 @@ const buildBookingMessage = (params: {
     day: "numeric",
   });
 
+  const attendeeEntries = [
+    ...params.attendeeUserIds.map((userId) => `<@${userId}>`),
+    ...params.guestNames,
+  ];
   const attendeeList =
-    params.attendeeUserIds.length > 0
-      ? params.attendeeUserIds.map((userId) => `• <@${userId}>`).join("\n")
+    attendeeEntries.length > 0
+      ? attendeeEntries.map((entry) => `• ${entry}`).join("\n")
       : "_No one else joining yet._";
 
   const text = `📅 New booking for ${params.activityTitle}: ${formattedDate} · ${params.from}–${params.to}`;
@@ -110,6 +116,7 @@ export const createBooking = async (
     from: string;
     to: string;
     attendeeUserIds: string[];
+    guestNames: string[];
   },
 ) => {
   const db = createDb(env);
@@ -127,10 +134,17 @@ export const createBooking = async (
     created: now,
   });
   const attendeeInserts = params.attendeeUserIds.map((userId) =>
-    db.insert(activityBookingAttendeesTable).values({ id: crypto.randomUUID(), bookingId, userId }),
+    db
+      .insert(activityBookingAttendeesTable)
+      .values({ id: crypto.randomUUID(), bookingId, userId, name: null }),
+  );
+  const guestInserts = params.guestNames.map((name) =>
+    db
+      .insert(activityBookingAttendeesTable)
+      .values({ id: crypto.randomUUID(), bookingId, userId: null, name }),
   );
 
-  await db.batch([bookingInsert, ...attendeeInserts]);
+  await db.batch([bookingInsert, ...attendeeInserts, ...guestInserts]);
 
   const { text, blocks } = buildBookingMessage({
     activityTitle: params.activityTitle,
@@ -139,6 +153,7 @@ export const createBooking = async (
     to: params.to,
     createdBy: params.createdBy,
     attendeeUserIds: params.attendeeUserIds,
+    guestNames: params.guestNames,
   });
   await announceBooking(env, {
     bookingId,
@@ -162,6 +177,7 @@ export const updateBooking = async (
     from: string;
     to: string;
     attendeeUserIds: string[];
+    guestNames: string[];
     slackMessageTs: string | null;
   },
 ) => {
@@ -179,10 +195,19 @@ export const updateBooking = async (
       id: crypto.randomUUID(),
       bookingId: params.bookingId,
       userId,
+      name: null,
+    }),
+  );
+  const guestInserts = params.guestNames.map((name) =>
+    db.insert(activityBookingAttendeesTable).values({
+      id: crypto.randomUUID(),
+      bookingId: params.bookingId,
+      userId: null,
+      name,
     }),
   );
 
-  await db.batch([bookingUpdate, attendeeDelete, ...attendeeInserts]);
+  await db.batch([bookingUpdate, attendeeDelete, ...attendeeInserts, ...guestInserts]);
 
   const { text, blocks } = buildBookingMessage({
     activityTitle: params.activityTitle,
@@ -191,6 +216,7 @@ export const updateBooking = async (
     to: params.to,
     createdBy: params.createdBy,
     attendeeUserIds: params.attendeeUserIds,
+    guestNames: params.guestNames,
   });
   await announceBooking(env, {
     bookingId: params.bookingId,

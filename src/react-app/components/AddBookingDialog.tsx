@@ -1,4 +1,5 @@
-import { type FormEvent, type ReactElement, useState } from "react";
+import { XIcon } from "lucide-react";
+import { type FormEvent, type KeyboardEvent, type ReactElement, useState } from "react";
 
 import { useCreateBookingMutation, useUpdateBookingMutation } from "../queries/bookings.ts";
 import { useChannelMembersQuery } from "../queries/channelMembers.ts";
@@ -30,6 +31,7 @@ type EditableBooking = {
   from: string;
   to: string;
   attendeeUserIds: string[];
+  guestNames: string[];
 };
 
 type Props = {
@@ -51,6 +53,8 @@ export const AddBookingDialog = ({ activityId, date, trigger, booking }: Props) 
   const [from, setFrom] = useState(booking?.from ?? "");
   const [to, setTo] = useState(booking?.to ?? "");
   const [attendeeUserIds, setAttendeeUserIds] = useState<string[]>(booking?.attendeeUserIds ?? []);
+  const [guestNames, setGuestNames] = useState<string[]>(booking?.guestNames ?? []);
+  const [guestNameInput, setGuestNameInput] = useState("");
 
   const members = useChannelMembersQuery();
   const createBooking = useCreateBookingMutation();
@@ -62,10 +66,29 @@ export const AddBookingDialog = ({ activityId, date, trigger, booking }: Props) 
     setFrom(booking?.from ?? "");
     setTo(booking?.to ?? "");
     setAttendeeUserIds(booking?.attendeeUserIds ?? []);
+    setGuestNames(booking?.guestNames ?? []);
+    setGuestNameInput("");
   };
 
   const toggleAttendee = (userId: string, checked: boolean) => {
     setAttendeeUserIds((ids) => (checked ? [...ids, userId] : ids.filter((id) => id !== userId)));
+  };
+
+  const addGuestName = () => {
+    const name = guestNameInput.trim();
+    if (name === "") return;
+    setGuestNames((names) => [...names, name]);
+    setGuestNameInput("");
+  };
+
+  const removeGuestName = (index: number) => {
+    setGuestNames((names) => names.filter((_, i) => i !== index));
+  };
+
+  const handleGuestNameKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key !== "Enter") return;
+    e.preventDefault();
+    addGuestName();
   };
 
   const valid = bookingDate !== "" && from !== "" && to !== "" && from < to;
@@ -76,12 +99,20 @@ export const AddBookingDialog = ({ activityId, date, trigger, booking }: Props) 
 
     if (isEdit) {
       updateBooking.mutate(
-        { activityId, bookingId: booking.id, date: bookingDate, from, to, attendeeUserIds },
+        {
+          activityId,
+          bookingId: booking.id,
+          date: bookingDate,
+          from,
+          to,
+          attendeeUserIds,
+          guestNames,
+        },
         { onSuccess: () => setOpen(false) },
       );
     } else {
       createBooking.mutate(
-        { activityId, date: bookingDate, from, to, attendeeUserIds },
+        { activityId, date: bookingDate, from, to, attendeeUserIds, guestNames },
         {
           onSuccess: () => {
             resetToInitial();
@@ -164,6 +195,41 @@ export const AddBookingDialog = ({ activityId, date, trigger, booking }: Props) 
             ) : (
               <p className="text-sm text-muted-foreground">No other members yet.</p>
             )}
+            {guestNames.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {guestNames.map((name, index) => (
+                  <span
+                    key={`${name}-${index}`}
+                    className="flex items-center gap-1 rounded-full border border-border bg-muted px-2 py-1 text-xs"
+                  >
+                    {name}
+                    <button
+                      type="button"
+                      onClick={() => removeGuestName(index)}
+                      aria-label={`Remove ${name}`}
+                    >
+                      <XIcon className="size-3" />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="booking-guest-name">Add someone without Slack</Label>
+            <div className="flex gap-2">
+              <Input
+                id="booking-guest-name"
+                value={guestNameInput}
+                onChange={(e) => setGuestNameInput(e.target.value)}
+                onKeyDown={handleGuestNameKeyDown}
+                placeholder="Name"
+              />
+              <Button type="button" variant="outline" onClick={addGuestName}>
+                Add
+              </Button>
+            </div>
           </div>
 
           <DialogFooter>

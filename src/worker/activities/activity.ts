@@ -1,4 +1,4 @@
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 
 import { createDb } from "../db/db.ts";
 import {
@@ -138,23 +138,32 @@ export const listActivitiesForChannel = async (env: Env, channelId: string, user
         .select({
           bookingId: activityBookingAttendeesTable.bookingId,
           userId: activityBookingAttendeesTable.userId,
-          name: usersTable.name,
+          // Members are named via the users join; guests carry their own
+          // free-text name directly on the attendee row.
+          name: sql<string>`coalesce(${usersTable.name}, ${activityBookingAttendeesTable.name})`,
         })
         .from(activityBookingAttendeesTable)
-        .innerJoin(usersTable, eq(usersTable.userId, activityBookingAttendeesTable.userId))
+        .leftJoin(usersTable, eq(usersTable.userId, activityBookingAttendeesTable.userId))
         .where(inArray(activityBookingAttendeesTable.bookingId, bookingIds))
     : [];
 
   const attendeeNamesByBooking = new Map<string, string[]>();
   const attendeeIdsByBooking = new Map<string, string[]>();
+  const guestNamesByBooking = new Map<string, string[]>();
   for (const row of attendeeRows) {
     const names = attendeeNamesByBooking.get(row.bookingId) ?? [];
     names.push(row.name);
     attendeeNamesByBooking.set(row.bookingId, names);
 
-    const ids = attendeeIdsByBooking.get(row.bookingId) ?? [];
-    ids.push(row.userId);
-    attendeeIdsByBooking.set(row.bookingId, ids);
+    if (row.userId) {
+      const ids = attendeeIdsByBooking.get(row.bookingId) ?? [];
+      ids.push(row.userId);
+      attendeeIdsByBooking.set(row.bookingId, ids);
+    } else {
+      const guestNames = guestNamesByBooking.get(row.bookingId) ?? [];
+      guestNames.push(row.name);
+      guestNamesByBooking.set(row.bookingId, guestNames);
+    }
   }
 
   const bookedSlotsByActivity = new Map<string, Record<string, boolean>>();
@@ -182,6 +191,7 @@ export const listActivitiesForChannel = async (env: Env, channelId: string, user
       createdBy: booking.createdBy,
       createdByName: booking.createdByName,
       attendeeUserIds: attendeeIdsByBooking.get(booking.id) ?? [],
+      guestNames: guestNamesByBooking.get(booking.id) ?? [],
       attendeeNames: attendeeNamesByBooking.get(booking.id) ?? [],
     })),
   }));

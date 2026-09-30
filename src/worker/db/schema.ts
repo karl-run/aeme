@@ -143,6 +143,10 @@ export const activityBookingsTable = sqliteTable(
   ],
 );
 
+/** An attendee is either a channel member (`userId` set, tagged via Slack
+ * `<@userId>` mentions) or a guest with no Slack account (`name` set, listed
+ * by plain name only — never attempted to be tagged) — exactly one of the
+ * two, enforced below. */
 export const activityBookingAttendeesTable = sqliteTable(
   "activity_booking_attendees",
   {
@@ -150,9 +154,14 @@ export const activityBookingAttendeesTable = sqliteTable(
     bookingId: text("booking_id")
       .notNull()
       .references(() => activityBookingsTable.id),
-    userId: text("user_id")
-      .notNull()
-      .references(() => usersTable.userId),
+    userId: text("user_id").references(() => usersTable.userId),
+    name: text(),
   },
-  (t) => [uniqueIndex("activity_booking_attendees_booking_user").on(t.bookingId, t.userId)],
+  (t) => [
+    uniqueIndex("activity_booking_attendees_booking_user").on(t.bookingId, t.userId),
+    check(
+      "activity_booking_attendees_user_or_name",
+      sql`(${t.userId} IS NOT NULL AND ${t.name} IS NULL) OR (${t.userId} IS NULL AND ${t.name} IS NOT NULL)`,
+    ),
+  ],
 );
