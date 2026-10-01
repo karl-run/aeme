@@ -1,14 +1,8 @@
+import { upcomingBookings } from "../lib/activity-state.ts";
 import type { ActivityWithAvailability } from "../queries/activities.ts";
 import { BookingDetailsDialog } from "./BookingDetailsDialog.tsx";
 
 type BookingSummary = ActivityWithAvailability["bookings"][number];
-
-const toDateStr = (d: Date) => {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
-};
 
 const formatChipDate = (date: string) =>
   new Date(`${date}T00:00:00`).toLocaleDateString(undefined, { month: "short", day: "numeric" });
@@ -29,11 +23,7 @@ type Props = {
  * universally-reliable scroll range. Clicking one opens its full details in
  * a modal. */
 export const UpcomingBookings = ({ activityId, bookings, idealMemberCount }: Props) => {
-  const today = toDateStr(new Date());
-
-  const upcoming = bookings
-    .filter((booking) => booking.date >= today)
-    .sort((a, b) => (a.date + a.from).localeCompare(b.date + b.from));
+  const upcoming = upcomingBookings(bookings);
 
   if (upcoming.length === 0) return null;
 

@@ -10,6 +10,7 @@ import { EditActivityDialog } from "../components/EditActivityDialog.tsx";
 import { PageContainer } from "../components/PageContainer.tsx";
 import { ResponderBreakdown } from "../components/ResponderBreakdown.tsx";
 import { Button } from "../components/ui/button.tsx";
+import { isRespondByPassed } from "../lib/activity-state.ts";
 import { respondersBySlot } from "../lib/responders.ts";
 import { useActivitiesQuery } from "../queries/activities.ts";
 import { useUpsertAvailabilityMutation } from "../queries/availability.ts";
@@ -63,7 +64,7 @@ const ActivityDetail = () => {
   }
 
   const isOwner = session.data?.session?.userId === activity.createdBy;
-  const closed = activity.endTime !== null && activity.endTime < new Date().toISOString();
+  const closed = isRespondByPassed(activity);
   const responders = respondersBySlot(activity.responses, session.data?.session?.userId);
 
   const handleChange = (next: ActivitySlot[]) => {

@@ -1,6 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { CheckIcon, PencilIcon } from "lucide-react";
 
+import { isRespondByPassed } from "../lib/activity-state.ts";
 import { splitByResponse } from "../lib/responders.ts";
 import type { ActivityWithAvailability } from "../queries/activities.ts";
 import { useChannelMembersQuery } from "../queries/channelMembers.ts";
@@ -56,7 +57,7 @@ export const ActivityCard = ({ activity }: Props) => {
 
   const { available, declined } = splitByResponse(activity.responses, members.data ?? []);
 
-  const closed = activity.endTime !== null && activity.endTime < new Date().toISOString();
+  const closed = isRespondByPassed(activity);
 
   return (
     <div className="flex w-full flex-col gap-3 rounded-lg border border-border bg-card p-4">

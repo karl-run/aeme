@@ -1,13 +1,11 @@
 import { Link } from "@tanstack/react-router";
 
-import { type ActivityWithAvailability, useActivitiesQuery } from "../queries/activities.ts";
+import { nextBookingTime, oneOffBucket } from "../lib/activity-state.ts";
+import { useActivitiesQuery } from "../queries/activities.ts";
 import { useSessionQuery } from "../queries/session.ts";
 import { ActivityCard } from "./ActivityCard.tsx";
 import { OngoingBoard } from "./OngoingBoard.tsx";
 import { PageContainer } from "./PageContainer.tsx";
-
-const isPast = (activity: ActivityWithAvailability) =>
-  activity.endTime !== null && activity.endTime < new Date().toISOString();
 
 export const Home = () => {
   const { data, isPending } = useSessionQuery();
@@ -40,8 +38,14 @@ export const Home = () => {
   const requests = all
     .filter((activity) => !activity.persistent)
     .sort((a, b) => (a.endTime ?? "").localeCompare(b.endTime ?? ""));
-  const openRequests = requests.filter((activity) => !isPast(activity));
-  const pastRequests = requests.filter(isPast);
+
+  const openRequests = requests.filter((activity) => oneOffBucket(activity) === "open");
+  // Soonest event first — once a request is locked in, the deadline it closed
+  // on stops being the interesting date.
+  const lockedRequests = requests
+    .filter((activity) => oneOffBucket(activity) === "locked")
+    .sort((a, b) => nextBookingTime(a) - nextBookingTime(b));
+  const pastRequests = requests.filter((activity) => oneOffBucket(activity) === "past");
 
   return (
     <PageContainer className="flex flex-col items-start gap-6 p-2 md:px-6">
@@ -57,8 +61,24 @@ export const Home = () => {
         ) : (
           openRequests.map((activity) => <ActivityCard key={activity.id} activity={activity} />)
         )}
+      </section>
 
-        {pastRequests.length > 0 && (
+      {lockedRequests.length > 0 && (
+        <section className="flex w-full max-w-2xl flex-col gap-3">
+          <div className="flex flex-col">
+            <h2 className="text-lg font-semibold">Booked</h2>
+            <p className="text-sm text-muted-foreground">
+              Responses are closed, but these haven't happened yet.
+            </p>
+          </div>
+          {lockedRequests.map((activity) => (
+            <ActivityCard key={activity.id} activity={activity} />
+          ))}
+        </section>
+      )}
+
+      {pastRequests.length > 0 && (
+        <section className="w-full max-w-2xl">
           <details className="text-sm text-muted-foreground">
             <summary className="cursor-pointer">Past requests ({pastRequests.length})</summary>
             <div className="mt-3 flex flex-col gap-3">
@@ -67,8 +87,8 @@ export const Home = () => {
               ))}
             </div>
           </details>
-        )}
-      </section>
+        </section>
+      )}
     </PageContainer>
   );
 };
