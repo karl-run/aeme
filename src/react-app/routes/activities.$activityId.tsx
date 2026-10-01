@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowLeftIcon, PencilIcon, PlusIcon } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import type { ActivitySlot } from "../../worker/db/schema.ts";
 import { ActivityLocations } from "../components/ActivityLocations.tsx";
@@ -17,6 +17,10 @@ import { respondersBySlot } from "../lib/responders.ts";
 import { useActivitiesQuery } from "../queries/activities.ts";
 import { useUpsertAvailabilityMutation } from "../queries/availability.ts";
 import { useSessionQuery } from "../queries/session.ts";
+
+// Matches the ongoing board's autosave, so a toggle on either surface
+// behaves the same.
+const SAVE_DEBOUNCE_MS = 600;
 
 const formatBookingDate = (date: string) =>
   new Date(`${date}T00:00:00`).toLocaleDateString(undefined, {
@@ -43,14 +47,24 @@ const ActivityDetail = () => {
 
   const [slots, setSlots] = useState<ActivitySlot[]>([]);
   const [declined, setDeclined] = useState(false);
+  // The dates the grid currently shows, reported up so "all days" can mean
+  // what's on screen. Stable identity + a content check, or the grid's effect
+  // and this state would bounce off each other forever.
+  const [visibleDates, setVisibleDates] = useState<string[]>([]);
+  const handleVisibleDates = useCallback((dates: string[]) => {
+    setVisibleDates((prev) => (prev.join("|") === dates.join("|") ? prev : dates));
+  }, []);
   // Guards the 10s dashboard poll from overwriting an answer mid-edit.
   const dirtyRef = useRef(false);
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   useEffect(() => {
     if (!activity || dirtyRef.current) return;
     setSlots(activity.slots);
     setDeclined(activity.declined);
   }, [activity]);
+
+  useEffect(() => () => clearTimeout(saveTimerRef.current), []);
 
   if (activities.isPending) return null;
 
@@ -71,20 +85,27 @@ const ActivityDetail = () => {
   const closed = isRespondByPassed(activity);
   const responders = respondersBySlot(activity.responses, session.data?.session?.userId);
 
+  // Toggling is the save — no separate confirm step. Debounced so a run of
+  // taps (or a drag across hours) sends one request rather than one each.
   const handleChange = (next: ActivitySlot[]) => {
     dirtyRef.current = true;
     setSlots(next);
     setDeclined(false);
-  };
 
-  const handleSave = () => {
-    upsertAvailability.mutate(
-      { activityId: activity.id, slots, declined: false },
-      { onSettled: () => (dirtyRef.current = false) },
-    );
+    clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(() => {
+      upsertAvailability.mutate(
+        { activityId: activity.id, slots: next, declined: false },
+        { onSettled: () => (dirtyRef.current = false) },
+      );
+    }, SAVE_DEBOUNCE_MS);
   };
 
   const handleDecline = () => {
+    // Drop any save still waiting out its debounce, or it would land after
+    // this one and put the cleared days straight back.
+    clearTimeout(saveTimerRef.current);
+
     dirtyRef.current = true;
     setSlots([]);
     setDeclined(true);
@@ -92,6 +113,23 @@ const ActivityDetail = () => {
       { activityId: activity.id, slots: [], declined: true },
       { onSettled: () => (dirtyRef.current = false) },
     );
+  };
+
+  const allDaysPicked =
+    visibleDates.length > 0 && visibleDates.every((date) => slots.some((s) => s.date === date));
+
+  const handleToggleAllDays = () => {
+    if (allDaysPicked) {
+      const visible = new Set(visibleDates);
+      handleChange(slots.filter((slot) => !visible.has(slot.date)));
+      return;
+    }
+
+    const already = new Set(slots.map((slot) => slot.date));
+    const added = visibleDates
+      .filter((date) => !already.has(date))
+      .map((date) => ({ date }) satisfies ActivitySlot);
+    handleChange([...slots, ...added]);
   };
 
   const bookings = [...activity.bookings].sort((a, b) =>
@@ -172,8 +210,8 @@ const ActivityDetail = () => {
             closed
               ? "Responses are closed."
               : activity.slotGranularity === "day"
-                ? "Pick the days that work for you."
-                : "Drag across the hours you're free."
+                ? "Tap the days that work for you — saved as you go."
+                : "Drag across the hours you're free — saved as you go."
           }
         >
           {declined && !closed && (
@@ -193,13 +231,20 @@ const ActivityDetail = () => {
             bookedSlots={activity.bookedSlots}
             bookings={activity.bookings}
             idealMemberCount={activity.idealMemberCount}
+            onVisibleDatesChange={handleVisibleDates}
           />
 
           {!closed && (
-            <div className="flex flex-wrap gap-2 border-t border-border pt-4">
-              <Button type="button" disabled={upsertAvailability.isPending} onClick={handleSave}>
-                {upsertAvailability.isPending ? "Saving…" : "Save"}
-              </Button>
+            <div className="flex flex-wrap items-center gap-2 border-t border-border pt-4">
+              {/* Day granularity only: "all days" on an hourly activity would
+                  mean every hour of every day, which is never what anyone
+                  means. */}
+              {activity.slotGranularity === "day" && visibleDates.length > 0 && (
+                <Button type="button" variant="outline" onClick={handleToggleAllDays}>
+                  {allDaysPicked ? "Clear all days" : "I can do all days"}
+                </Button>
+              )}
+              {/* Persistent activities have nothing to decline — they just run. */}
               {!activity.persistent && (
                 <Button
                   type="button"
@@ -210,6 +255,11 @@ const ActivityDetail = () => {
                 >
                   Can't make it
                 </Button>
+              )}
+              {upsertAvailability.isPending && (
+                <span className="text-xs text-muted-foreground" aria-live="polite">
+                  Saving…
+                </span>
               )}
             </div>
           )}

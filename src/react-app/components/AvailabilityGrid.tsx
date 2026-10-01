@@ -69,6 +69,9 @@ type Props = {
   bookings?: ActivityWithAvailability["bookings"];
   /** Advisory headcount, shown alongside a booking's attendee count. */
   idealMemberCount?: number | null;
+  /** Called with the dates currently on screen, so the host can act on them
+   * (e.g. select them all). Must be referentially stable. */
+  onVisibleDatesChange?: (dates: string[]) => void;
 };
 
 export const AvailabilityGrid = ({
@@ -82,6 +85,7 @@ export const AvailabilityGrid = ({
   bookedSlots = {},
   bookings = [],
   idealMemberCount,
+  onVisibleDatesChange,
 }: Props) => {
   const today = startOfDay(new Date());
 
@@ -143,6 +147,15 @@ export const AvailabilityGrid = ({
     onChange([...value.filter((s) => s.date !== dateStr), ...ranges]);
   };
 
+  // Which dates are on screen: every suggested date when the creator fixed a
+  // set, otherwise the week currently in the window. Reported upward so the
+  // page can offer an "all days" shortcut next to its other controls.
+  const visibleKey = days.map(toDateStr).join("|");
+
+  useEffect(() => {
+    onVisibleDatesChange?.(visibleKey === "" ? [] : visibleKey.split("|"));
+  }, [visibleKey, onVisibleDatesChange]);
+
   const dragValueRef = useRef<boolean | null>(null);
   const { beginsDrag, handlesClick } = useTapOrDrag();
 
@@ -197,7 +210,7 @@ export const AvailabilityGrid = ({
                   onClick={() => toggleDay(dateStr)}
                   title={namesTitle(dayResponders)}
                   className={cn(
-                    "flex flex-col items-center rounded-md border border-input px-3 py-2 text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-60",
+                    "relative flex flex-col items-center rounded-md border border-input px-3 py-2 text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-60",
                     selected
                       ? cn(
                           "border-primary bg-primary text-primary-foreground",
@@ -209,6 +222,14 @@ export const AvailabilityGrid = ({
                   )}
                 >
                   {formatDayLabel(d)}
+                  {selected && (
+                    <span
+                      aria-hidden
+                      className="pointer-events-none absolute -right-1 bottom-1.5 origin-bottom-right -rotate-45 text-[10px] leading-none font-semibold"
+                    >
+                      æme!
+                    </span>
+                  )}
                   {booked && <div className={bookedSlotOverlayClass} />}
                 </button>
                 {others > 0 && (
