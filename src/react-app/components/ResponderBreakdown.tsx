@@ -43,7 +43,6 @@ export const ResponderBreakdown = ({ activity }: Props) => {
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-col gap-3">
-        <h3 className="text-sm font-semibold">Who can make it</h3>
         {dates.length === 0 ? (
           <p className="text-sm text-muted-foreground">No one has picked a day yet.</p>
         ) : (

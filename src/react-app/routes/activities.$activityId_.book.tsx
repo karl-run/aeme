@@ -4,6 +4,7 @@ import { ArrowLeftIcon } from "lucide-react";
 import { BookingForm } from "../components/BookingForm.tsx";
 import { DeleteBookingDialog } from "../components/DeleteBookingDialog.tsx";
 import { PageContainer } from "../components/PageContainer.tsx";
+import { Section } from "../components/Section.tsx";
 import { Button } from "../components/ui/button.tsx";
 import { useActivitiesQuery } from "../queries/activities.ts";
 
@@ -45,7 +46,7 @@ const BookActivity = () => {
 
   if (!activity || (bookingId !== undefined && !booking)) {
     return (
-      <PageContainer className="flex flex-col items-start gap-3 p-2 md:px-6">
+      <PageContainer className="flex max-w-2xl flex-col items-start gap-3 p-2 md:px-6">
         <p className="text-sm text-muted-foreground">
           {activity ? "That booking no longer exists." : "That activity doesn't exist here."}
         </p>
@@ -57,30 +58,25 @@ const BookActivity = () => {
   }
 
   return (
-    <PageContainer className="flex max-w-2xl flex-col items-start gap-5 p-2 md:px-6">
+    <PageContainer className="flex max-w-2xl flex-col items-start gap-4 p-2 pb-10 md:px-6">
       <button
         type="button"
         onClick={goBack}
-        className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
+        className="flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
       >
         <ArrowLeftIcon className="size-4" />
         Back
       </button>
 
-      <div className="flex flex-col gap-1">
-        <h1 className="text-2xl font-semibold">
-          {booking ? "Edit booking" : "Book"} · {activity.title}
-        </h1>
+      <header className="flex w-full flex-col gap-1">
+        <h1 className="text-2xl font-semibold">{booking ? "Edit booking" : "New booking"}</h1>
         <p className="text-sm text-muted-foreground">
-          {booking
-            ? formatDate(booking.date)
-            : date
-              ? formatDate(date)
-              : "Pick a date and time, then invite whoever's free."}
+          {activity.title}
+          {(booking || date) && ` · ${formatDate(booking ? booking.date : date!)}`}
         </p>
-      </div>
+      </header>
 
-      <div className="w-full">
+      <Section>
         <BookingForm
           activity={activity}
           booking={
@@ -100,13 +96,14 @@ const BookActivity = () => {
           onDone={goBack}
           onCancel={goBack}
         />
-      </div>
+      </Section>
 
       {booking && (
-        <div className="flex w-full flex-col gap-2 border-t border-border pt-5">
-          <p className="text-sm text-muted-foreground">
-            Booked this by mistake? Deleting removes it from æme and takes the Slack post with it.
-          </p>
+        <Section
+          title="Delete booking"
+          description="Booked this by mistake? Deleting removes it from æme and takes the Slack post with it."
+          className="border-destructive/30 bg-destructive/5"
+        >
           <div>
             <DeleteBookingDialog
               activityId={activity.id}
@@ -117,7 +114,7 @@ const BookActivity = () => {
               onDeleted={goBack}
             />
           </div>
-        </div>
+        </Section>
       )}
     </PageContainer>
   );

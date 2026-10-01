@@ -247,7 +247,7 @@ export const BookingForm = ({ activity, booking, initialDate, onDone, onCancel }
         </div>
       </div>
 
-      <div className="flex flex-col gap-1.5">
+      <div className="flex flex-col gap-1.5 border-t border-border pt-4">
         <Label htmlFor="booking-description">Description</Label>
         <Textarea
           id="booking-description"
@@ -319,7 +319,7 @@ export const BookingForm = ({ activity, booking, initialDate, onDone, onCancel }
         )}
       </div>
 
-      <div className="flex flex-col gap-2">
+      <div className="flex flex-col gap-2 border-t border-border pt-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <Label>Who's joining?</Label>
           {unselectedAvailable.length > 0 && (
@@ -405,7 +405,7 @@ export const BookingForm = ({ activity, booking, initialDate, onDone, onCancel }
         </div>
       </div>
 
-      <div className="flex flex-wrap justify-end gap-2">
+      <div className="flex flex-wrap justify-end gap-2 border-t border-border pt-4">
         <Button type="button" variant="outline" onClick={onCancel}>
           Cancel
         </Button>

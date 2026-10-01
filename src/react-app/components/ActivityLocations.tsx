@@ -46,8 +46,6 @@ export const ActivityLocations = ({ activity, canEdit }: Props) => {
 
   return (
     <div className="flex flex-col gap-3">
-      <h2 className="text-lg font-semibold">Locations</h2>
-
       {activity.locations.length === 0 ? (
         <p className="text-sm text-muted-foreground">
           {canEdit
