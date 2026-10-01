@@ -29,7 +29,12 @@ export const Header = () => {
 
   return (
     <header className="border-b border-zinc-700">
-      <PageContainer className="flex items-center justify-between px-4 py-3">
+      {/* Pinned height: the bar's contents arrive in stages — the channel
+          dropdown only once the channels query says there's more than one, and
+          the actions once the session lands — and those are h-8 buttons against
+          a h-4 placeholder. Without a floor the bar grows as they appear and
+          shoves the whole page down. 3.5rem = py-3 + h-8. */}
+      <PageContainer className="flex min-h-14 items-center justify-between px-4 py-3">
         <div className="flex items-center gap-3">
           <Link to="/" className="flex items-center gap-2 font-semibold">
             <img src="/logo-big.png" alt="" className="size-6 rounded-sm" />

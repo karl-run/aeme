@@ -6,12 +6,13 @@ import { useSessionQuery } from "../queries/session.ts";
 import { ActivityCard } from "./ActivityCard.tsx";
 import { OngoingBoard } from "./OngoingBoard.tsx";
 import { PageContainer } from "./PageContainer.tsx";
+import { PageLoader } from "./PageLoader.tsx";
 
 export const Home = () => {
   const { data, isPending } = useSessionQuery();
   const activities = useActivitiesQuery();
 
-  if (isPending) return null;
+  if (isPending) return <PageLoader />;
 
   const session = data?.session;
 
@@ -33,6 +34,10 @@ export const Home = () => {
     );
   }
 
+  // Before the first fetch lands `data` is undefined, and treating that as an
+  // empty list renders "No open requests." at someone who has plenty.
+  if (activities.isPending) return <PageLoader />;
+
   const all = activities.data ?? [];
   const ongoing = all.filter((activity) => activity.persistent);
   const requests = all
@@ -48,7 +53,7 @@ export const Home = () => {
   const pastRequests = requests.filter((activity) => oneOffBucket(activity) === "past");
 
   return (
-    <PageContainer className="flex flex-col items-start gap-6 p-2 md:px-6">
+    <PageContainer className="flex animate-in flex-col items-start gap-6 p-2 fade-in duration-300 md:px-6">
       <section className="flex w-full flex-col gap-3">
         <h2 className="text-lg font-semibold">Ongoing</h2>
         <OngoingBoard activities={ongoing} />
