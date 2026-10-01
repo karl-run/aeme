@@ -65,7 +65,10 @@ export type ChannelMember = {
   name: string;
 };
 
-const getMemberName = async (env: Env, userId: string): Promise<ChannelMember | null> => {
+/** A member's display name, which is what every Slack surface shows — as
+ * opposed to the `user_name` handle the slash command sends, which is the
+ * lowercase dotted login. Returns null for bots, deleted users and failures. */
+export const getMemberName = async (env: Env, userId: string): Promise<ChannelMember | null> => {
   const url = new URL("https://slack.com/api/users.info");
   url.searchParams.set("user", userId);
 

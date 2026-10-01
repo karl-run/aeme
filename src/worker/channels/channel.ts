@@ -4,7 +4,9 @@ import { createDb, type Db } from "../db/db.ts";
 import { channelMembersTable, channelsTable, usersTable } from "../db/schema.ts";
 import { ensureUser } from "../users/user.ts";
 
-/** Statement-only form, for batching — see `ensureUserStatement`. */
+/** Statement-only form, for batching — see `ensureUserStatement`. The name is
+ * refreshed on conflict so a channel rename propagates; `ownerIdIfNew` is
+ * deliberately not, since it only describes who created the row. */
 export const ensureChannelStatement = (
   db: Db,
   params: { channelId: string; name: string; ownerIdIfNew: string },
@@ -17,7 +19,7 @@ export const ensureChannelStatement = (
       owner: params.ownerIdIfNew,
       created: new Date().toISOString(),
     })
-    .onConflictDoNothing({ target: channelsTable.channelId });
+    .onConflictDoUpdate({ target: channelsTable.channelId, set: { name: params.name } });
 
 export const ensureChannel = async (
   env: Env,
@@ -56,8 +58,8 @@ export const ensureChannelMember = async (
 /** Pre-loads a Slack member (from the live roster, see `getChannelMembers`)
  * into the local DB before they've ever logged into æme, so they're
  * immediately selectable as a channel member (e.g. as a booking attendee).
- * If they do log in later, `ensureUser`/`ensureChannelMember` just no-op on
- * the rows this already created. */
+ * If they do log in later, `ensureChannelMember` no-ops on the row this
+ * already created and `ensureUser` refreshes their display name. */
 export const addChannelMember = async (
   env: Env,
   params: { channelId: string; userId: string; name: string },
