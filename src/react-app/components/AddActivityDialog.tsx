@@ -42,6 +42,9 @@ export const AddActivityDialog = () => {
   const [datesOpen, setDatesOpen] = useState(false);
   const [endDateOpen, setEndDateOpen] = useState(false);
   const [idealMemberCount, setIdealMemberCount] = useState("");
+  // Set on the first submit attempt, so the deadline error only appears once
+  // you've actually tried — not while you're still filling the form in.
+  const [submitAttempted, setSubmitAttempted] = useState(false);
 
   const createActivity = useCreateActivityMutation();
 
@@ -58,11 +61,30 @@ export const AddActivityDialog = () => {
     setSlotGranularity("day");
     setSuggestedDates([]);
     setIdealMemberCount("");
+    setSubmitAttempted(false);
   };
+
+  // A one-off needs a deadline, but nothing in the form can say so natively:
+  // the date side is a popover button rather than an input, and the time input
+  // is disabled until a date is picked — and the browser skips disabled fields
+  // when validating. So it's checked and reported by hand.
+  //
+  // The past-deadline case is checked here too, matching the rule the server
+  // enforces: the calendar won't offer a past date, but picking today and an
+  // hour that's already gone otherwise fails with a generic "Failed to add
+  // activity" long after the fact.
+  const deadlineError = persistent
+    ? null
+    : endTime === ""
+      ? "Pick a date and time for people to respond by."
+      : new Date(endTime) < new Date()
+        ? "That time has already passed — pick a later one."
+        : null;
 
   const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!persistent && !endTime) return;
+    setSubmitAttempted(true);
+    if (deadlineError) return;
 
     createActivity.mutate(
       {
@@ -224,6 +246,7 @@ export const AddActivityDialog = () => {
                         <Button
                           type="button"
                           variant="outline"
+                          aria-invalid={submitAttempted && deadlineError !== null}
                           className="flex-1 justify-start font-normal"
                         />
                       }
@@ -257,9 +280,15 @@ export const AddActivityDialog = () => {
                     }
                     disabled={!endDatePart}
                     required={!persistent}
+                    aria-invalid={submitAttempted && deadlineError !== null}
                     className="w-32"
                   />
                 </div>
+                {submitAttempted && deadlineError && (
+                  <p className="text-sm text-destructive" aria-live="polite">
+                    {deadlineError}
+                  </p>
+                )}
               </div>
             </TabsPanel>
 
