@@ -12,6 +12,7 @@ import {
   mineWithOthersClass,
   othersSlotClass,
 } from "../lib/slot-color.ts";
+import { useTapOrDrag } from "../lib/tap-or-drag.ts";
 import type { ActivityWithAvailability } from "../queries/activities.ts";
 import { useUpsertAvailabilityMutation } from "../queries/availability.ts";
 import { useSessionQuery } from "../queries/session.ts";
@@ -124,11 +125,16 @@ const ActivityPickerCard = ({ activity, days }: CardProps) => {
   };
 
   const dragValueRef = useRef<boolean | null>(null);
+  const { beginsDrag, handlesClick } = useTapOrDrag();
 
   useEffect(() => {
     const clearDrag = () => (dragValueRef.current = null);
     window.addEventListener("pointerup", clearDrag);
-    return () => window.removeEventListener("pointerup", clearDrag);
+    window.addEventListener("pointercancel", clearDrag);
+    return () => {
+      window.removeEventListener("pointerup", clearDrag);
+      window.removeEventListener("pointercancel", clearDrag);
+    };
   }, []);
 
   const isDaySelected = (dateStr: string) => slots.some((s) => s.date === dateStr);
@@ -312,7 +318,8 @@ const ActivityPickerCard = ({ activity, days }: CardProps) => {
                       <div
                         key={hour}
                         title={namesTitle(hourResponders)}
-                        onPointerDown={() => {
+                        onPointerDown={(e) => {
+                          if (!beginsDrag(e)) return;
                           const next = !selected;
                           dragValueRef.current = next;
                           setHour(dateStr, hour, next);
@@ -320,6 +327,10 @@ const ActivityPickerCard = ({ activity, days }: CardProps) => {
                         onPointerEnter={() => {
                           if (dragValueRef.current !== null)
                             setHour(dateStr, hour, dragValueRef.current);
+                        }}
+                        onClick={(e) => {
+                          if (!handlesClick(e)) return;
+                          setHour(dateStr, hour, !selected);
                         }}
                         className={cn(
                           "group relative flex h-6 cursor-pointer items-center justify-center border transition-colors",

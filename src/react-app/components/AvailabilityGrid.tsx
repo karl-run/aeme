@@ -13,6 +13,7 @@ import {
   mineWithOthersClass,
   othersSlotClass,
 } from "../lib/slot-color.ts";
+import { useTapOrDrag } from "../lib/tap-or-drag.ts";
 import type { ActivityWithAvailability } from "../queries/activities.ts";
 import { BookingInfoPopover } from "./BookingInfoPopover.tsx";
 import { Button } from "./ui/button.tsx";
@@ -143,11 +144,16 @@ export const AvailabilityGrid = ({
   };
 
   const dragValueRef = useRef<boolean | null>(null);
+  const { beginsDrag, handlesClick } = useTapOrDrag();
 
   useEffect(() => {
     const clearDrag = () => (dragValueRef.current = null);
     window.addEventListener("pointerup", clearDrag);
-    return () => window.removeEventListener("pointerup", clearDrag);
+    window.addEventListener("pointercancel", clearDrag);
+    return () => {
+      window.removeEventListener("pointerup", clearDrag);
+      window.removeEventListener("pointercancel", clearDrag);
+    };
   }, []);
 
   return (
@@ -292,8 +298,8 @@ export const AvailabilityGrid = ({
                     <div
                       key={hour}
                       title={namesTitle(hourResponders)}
-                      onPointerDown={() => {
-                        if (readOnly) return;
+                      onPointerDown={(e) => {
+                        if (readOnly || !beginsDrag(e)) return;
                         const next = !selected;
                         dragValueRef.current = next;
                         setHour(dateStr, hour, next);
@@ -301,6 +307,10 @@ export const AvailabilityGrid = ({
                       onPointerEnter={() => {
                         if (readOnly || dragValueRef.current === null) return;
                         setHour(dateStr, hour, dragValueRef.current);
+                      }}
+                      onClick={(e) => {
+                        if (readOnly || !handlesClick(e)) return;
+                        setHour(dateStr, hour, !selected);
                       }}
                       className={cn(
                         "flex h-6 items-center justify-center border border-border/50",

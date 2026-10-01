@@ -3,6 +3,7 @@ import { useEffect, useRef } from "react";
 
 import { type ActivityResponse, respondersBySlot, slotKey } from "../lib/responders.ts";
 import { othersSlotClass } from "../lib/slot-color.ts";
+import { useTapOrDrag } from "../lib/tap-or-drag.ts";
 import type { ActivityWithAvailability } from "../queries/activities.ts";
 
 // Same window the availability grids offer, so the strip can't show hours
@@ -51,11 +52,16 @@ export const BookingAvailabilityStrip = ({
   // A ref, not state: the anchor never affects rendering, and a pointerenter
   // firing before the next render would read a stale value from state.
   const anchorHourRef = useRef<number | null>(null);
+  const { beginsDrag, handlesClick } = useTapOrDrag();
 
   useEffect(() => {
     const clearDrag = () => (anchorHourRef.current = null);
     window.addEventListener("pointerup", clearDrag);
-    return () => window.removeEventListener("pointerup", clearDrag);
+    window.addEventListener("pointercancel", clearDrag);
+    return () => {
+      window.removeEventListener("pointerup", clearDrag);
+      window.removeEventListener("pointercancel", clearDrag);
+    };
   }, []);
 
   // Everyone, including the viewer: when picking a time you care about the
@@ -112,13 +118,18 @@ export const BookingAvailabilityStrip = ({
                         .filter(Boolean)
                         .join("\n") || undefined
                     }
-                    onPointerDown={() => {
+                    onPointerDown={(e) => {
+                      if (!beginsDrag(e)) return;
                       anchorHourRef.current = hour;
                       onSelectRange(formatHour(hour), formatHour(hour + 1));
                     }}
                     onPointerEnter={() => {
                       if (anchorHourRef.current === null) return;
                       selectTo(hour);
+                    }}
+                    onClick={(e) => {
+                      if (!handlesClick(e)) return;
+                      onSelectRange(formatHour(hour), formatHour(hour + 1));
                     }}
                     className={cn(
                       "flex h-10 w-full cursor-pointer items-center justify-center border text-[10px] font-medium transition-colors",
