@@ -1,3 +1,4 @@
+import { cn } from "cn";
 import { format } from "date-fns";
 import { CalendarIcon, XIcon } from "lucide-react";
 import { type FormEvent, type KeyboardEvent, useState } from "react";
@@ -7,6 +8,7 @@ import type { ActivityWithAvailability } from "../queries/activities.ts";
 import { useCreateBookingMutation, useUpdateBookingMutation } from "../queries/bookings.ts";
 import { useChannelMembersQuery } from "../queries/channelMembers.ts";
 import { BookingAvailabilityStrip } from "./BookingAvailabilityStrip.tsx";
+import { BookingDateChoices } from "./BookingDateChoices.tsx";
 import { Button } from "./ui/button.tsx";
 import { Calendar } from "./ui/calendar.tsx";
 import { Checkbox } from "./ui/checkbox.tsx";
@@ -88,6 +90,13 @@ export const BookingForm = ({ activity, booking, initialDate, onDone, onCancel }
   );
   const hourly = activity.slotGranularity === "hourly";
 
+  // A one-off is booked against the days it asked about, so lead with those
+  // rather than an open calendar. A persistent activity has no such set.
+  const showDateChoices =
+    !activity.persistent &&
+    ((activity.suggestedDates?.length ?? 0) > 0 ||
+      activity.responses.some((response) => response.slots.length > 0));
+
   // Available first: the whole point of booking from here is to invite the
   // people who already said the slot works for them.
   const sortedMembers = [...(members.data ?? [])].sort((a, b) => {
@@ -151,8 +160,13 @@ export const BookingForm = ({ activity, booking, initialDate, onDone, onCancel }
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-      <div className="flex flex-col gap-1.5">
+      <div className="flex flex-col gap-2">
         <Label htmlFor="booking-date">Date</Label>
+
+        {showDateChoices && (
+          <BookingDateChoices activity={activity} value={bookingDate} onChange={setBookingDate} />
+        )}
+
         <Popover open={dateOpen} onOpenChange={setDateOpen}>
           <PopoverTrigger
             render={
@@ -160,12 +174,19 @@ export const BookingForm = ({ activity, booking, initialDate, onDone, onCancel }
                 id="booking-date"
                 type="button"
                 variant="outline"
-                className="justify-start font-normal"
+                size={showDateChoices ? "sm" : "default"}
+                className={cn("justify-start font-normal", showDateChoices && "self-start")}
               />
             }
           >
             <CalendarIcon className="size-4" />
-            {bookingDate ? format(new Date(`${bookingDate}T00:00:00`), "PPP") : "Pick a date"}
+            {showDateChoices
+              ? bookingDate === ""
+                ? "Pick another date"
+                : `Another date (now ${format(new Date(`${bookingDate}T00:00:00`), "PPP")})`
+              : bookingDate
+                ? format(new Date(`${bookingDate}T00:00:00`), "PPP")
+                : "Pick a date"}
           </PopoverTrigger>
           <PopoverContent className="w-auto p-0" align="start">
             <Calendar
