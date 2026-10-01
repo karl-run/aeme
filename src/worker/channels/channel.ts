@@ -1,16 +1,15 @@
 import { eq } from "drizzle-orm";
 
-import { createDb } from "../db/db.ts";
+import { createDb, type Db } from "../db/db.ts";
 import { channelMembersTable, channelsTable, usersTable } from "../db/schema.ts";
 import { ensureUser } from "../users/user.ts";
 
-export const ensureChannel = async (
-  env: Env,
+/** Statement-only form, for batching — see `ensureUserStatement`. */
+export const ensureChannelStatement = (
+  db: Db,
   params: { channelId: string; name: string; ownerIdIfNew: string },
-) => {
-  const db = createDb(env);
-
-  await db
+) =>
+  db
     .insert(channelsTable)
     .values({
       channelId: params.channelId,
@@ -19,18 +18,23 @@ export const ensureChannel = async (
       created: new Date().toISOString(),
     })
     .onConflictDoNothing({ target: channelsTable.channelId });
+
+export const ensureChannel = async (
+  env: Env,
+  params: { channelId: string; name: string; ownerIdIfNew: string },
+) => {
+  await ensureChannelStatement(createDb(env), params);
 };
 
 /** Records that a user belongs to a channel — a user can be a member of
  * multiple channels. Call this whenever a user is confirmed to be acting
  * from a given channel (e.g. running the slash command there). */
-export const ensureChannelMember = async (
-  env: Env,
+/** Statement-only form, for batching — see `ensureUserStatement`. */
+export const ensureChannelMemberStatement = (
+  db: Db,
   params: { channelId: string; userId: string },
-) => {
-  const db = createDb(env);
-
-  await db
+) =>
+  db
     .insert(channelMembersTable)
     .values({
       id: crypto.randomUUID(),
@@ -41,6 +45,12 @@ export const ensureChannelMember = async (
     .onConflictDoNothing({
       target: [channelMembersTable.channelId, channelMembersTable.userId],
     });
+
+export const ensureChannelMember = async (
+  env: Env,
+  params: { channelId: string; userId: string },
+) => {
+  await ensureChannelMemberStatement(createDb(env), params);
 };
 
 /** Pre-loads a Slack member (from the live roster, see `getChannelMembers`)

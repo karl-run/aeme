@@ -1,5 +1,7 @@
 import { drizzle } from "drizzle-orm/libsql";
 
+export type Db = ReturnType<typeof createDb>;
+
 export function createDb(env: Env) {
   return drizzle({
     connection: {

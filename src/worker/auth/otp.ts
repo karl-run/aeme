@@ -1,11 +1,11 @@
 import { eq } from "drizzle-orm";
 
-import { ensureChannel, ensureChannelMember } from "../channels/channel.ts";
+import { ensureChannelMemberStatement, ensureChannelStatement } from "../channels/channel.ts";
 import { BASE_URL } from "../constants.ts";
 import { createDb } from "../db/db.ts";
 import { otpLoginsTable } from "../db/schema.ts";
 import { postEphemeral } from "../slack/messages.ts";
-import { ensureUser } from "../users/user.ts";
+import { ensureUserStatement } from "../users/user.ts";
 import { createSession } from "./session.ts";
 
 const OTP_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
@@ -30,27 +30,37 @@ export const initiateLogin = async (
     channelName: string;
   },
 ) => {
-  await ensureUser(env, { userId: params.userId, name: params.userName });
-  await ensureChannel(env, {
-    channelId: params.channelId,
-    name: params.channelName,
-    ownerIdIfNew: params.userId,
-  });
-  await ensureChannelMember(env, { channelId: params.channelId, userId: params.userId });
-
   const db = createDb(env);
   const otp = generateOtp();
+  const otpHash = await hashOtp(otp);
 
-  const [otpLogin] = await db
-    .insert(otpLoginsTable)
-    .values({
+  // One round trip rather than four. The slash command is on a 3-second
+  // Slack budget and every statement here is a request to Turso, so they go
+  // as a batch — which libsql runs in order inside a transaction, keeping the
+  // foreign keys satisfied (channel needs its owner, membership needs both)
+  // and rolling the lot back if any of them fails.
+  const [, , , [otpLogin]] = await db.batch([
+    ensureUserStatement(db, { userId: params.userId, name: params.userName }),
+    ensureChannelStatement(db, {
+      channelId: params.channelId,
+      name: params.channelName,
+      ownerIdIfNew: params.userId,
+    }),
+    ensureChannelMemberStatement(db, {
       channelId: params.channelId,
       userId: params.userId,
-      otpHash: await hashOtp(otp),
-      created: new Date().toISOString(),
-      expires: new Date(Date.now() + OTP_TTL_MS).toISOString(),
-    })
-    .returning();
+    }),
+    db
+      .insert(otpLoginsTable)
+      .values({
+        channelId: params.channelId,
+        userId: params.userId,
+        otpHash,
+        created: new Date().toISOString(),
+        expires: new Date(Date.now() + OTP_TTL_MS).toISOString(),
+      })
+      .returning(),
+  ]);
 
   return { ...otpLogin, otp };
 };

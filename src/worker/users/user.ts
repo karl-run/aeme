@@ -1,12 +1,12 @@
 import { eq } from "drizzle-orm";
 
-import { createDb } from "../db/db.ts";
+import { createDb, type Db } from "../db/db.ts";
 import { usersTable } from "../db/schema.ts";
 
-export const ensureUser = async (env: Env, params: { userId: string; name: string }) => {
-  const db = createDb(env);
-
-  await db
+/** The statement on its own, so callers that need several of these can send
+ * them as one batch instead of a round trip each (see `initiateLogin`). */
+export const ensureUserStatement = (db: Db, params: { userId: string; name: string }) =>
+  db
     .insert(usersTable)
     .values({
       userId: params.userId,
@@ -14,6 +14,9 @@ export const ensureUser = async (env: Env, params: { userId: string; name: strin
       created: new Date().toISOString(),
     })
     .onConflictDoNothing({ target: usersTable.userId });
+
+export const ensureUser = async (env: Env, params: { userId: string; name: string }) => {
+  await ensureUserStatement(createDb(env), params);
 };
 
 export const getUserName = async (env: Env, userId: string): Promise<string | null> => {
