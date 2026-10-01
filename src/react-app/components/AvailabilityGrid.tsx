@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import type { ActivitySlot } from "../../worker/db/schema.ts";
 import { bookingOverlayPercent, bookingsForDay } from "../lib/booking-slots.ts";
 import type { RespondingUser } from "../lib/responders.ts";
-import { headcount, responderLabel, slotKey } from "../lib/responders.ts";
+import { guestCount, responderLabel, slotKey } from "../lib/responders.ts";
 import {
   bookedSlotOverlayClass,
   bookingOverlayClass,
@@ -61,9 +61,11 @@ type Props = {
   value: ActivitySlot[];
   onChange: (slots: ActivitySlot[]) => void;
   readOnly?: boolean;
-  /** Other users who picked each slot, keyed by `slotKey` — the viewer's own
-   * row is excluded by the caller, since their pick shows as the cell fill. */
+  /** Everyone who picked each slot, keyed by `slotKey`, the viewer included. */
   responders?: Record<string, RespondingUser[]>;
+  /** Used to split "others" out of the counts for the fill intensity, which is
+   * about how many *more* people want a slot you've already picked. */
+  viewerId?: string;
   /** Whether each slot has an actual booking, keyed the same way. */
   bookedSlots?: Record<string, boolean>;
   bookings?: ActivityWithAvailability["bookings"];
@@ -82,6 +84,7 @@ export const AvailabilityGrid = ({
   onChange,
   readOnly = false,
   responders = {},
+  viewerId,
   bookedSlots = {},
   bookings = [],
   idealMemberCount,
@@ -200,7 +203,11 @@ export const AvailabilityGrid = ({
             const dateStr = toDateStr(d);
             const selected = isDaySelected(dateStr);
             const dayResponders = responders[slotKey(dateStr)] ?? [];
-            const others = headcount(dayResponders);
+            const count = dayResponders.length;
+            const guests = guestCount(dayResponders);
+            // Fill intensity tracks other people only: a slot you alone picked
+            // shouldn't look as busy as one three of you picked.
+            const others = dayResponders.filter((person) => person.userId !== viewerId).length;
             const booked = bookedSlots[dateStr] ?? false;
             return (
               <div key={dateStr} className="group relative hover:z-10">
@@ -232,12 +239,19 @@ export const AvailabilityGrid = ({
                   )}
                   {booked && <div className={bookedSlotOverlayClass} />}
                 </button>
-                {others > 0 && (
+                {(count >= 2 || guests > 0) && (
                   <span
                     title={namesTitle(dayResponders)}
-                    className="absolute -top-1.5 -left-1.5 flex size-4 items-center justify-center rounded-full bg-emerald-900 text-[9px] font-medium text-primary-foreground"
+                    className="absolute -top-1.5 -left-1.5 flex items-center gap-0.5"
                   >
-                    {others}
+                    <span className="flex size-4 items-center justify-center rounded-full bg-emerald-900 text-[9px] font-medium text-primary-foreground">
+                      {count}
+                    </span>
+                    {guests > 0 && (
+                      <span className="flex h-4 items-center justify-center rounded-full bg-emerald-700 px-1 text-[9px] font-medium text-primary-foreground">
+                        +{guests}
+                      </span>
+                    )}
                   </span>
                 )}
                 {booked && (
@@ -314,7 +328,10 @@ export const AvailabilityGrid = ({
                 {HOURS.map((hour) => {
                   const selected = hourSetForDate(dateStr).has(hour);
                   const hourResponders = responders[slotKey(dateStr, hour)] ?? [];
-                  const others = headcount(hourResponders);
+                  const count = hourResponders.length;
+                  const others = hourResponders.filter(
+                    (person) => person.userId !== viewerId,
+                  ).length;
                   return (
                     <div
                       key={hour}
@@ -341,9 +358,11 @@ export const AvailabilityGrid = ({
                           : others > 0 && othersSlotClass(others),
                       )}
                     >
-                      {others > 0 && (
+                      {/* Only worth a number once it's more than one person:
+                          a lone pick is already shown by the cell's fill. */}
+                      {count >= 2 && (
                         <span className="text-[9px] font-medium text-primary-foreground">
-                          {others}
+                          {count}
                         </span>
                       )}
                     </div>

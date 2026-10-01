@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import type { ActivitySlot } from "../../worker/db/schema.ts";
 import { bookingOverlayPercent, bookingsForDay } from "../lib/booking-slots.ts";
 import {
-  headcount,
+  guestCount,
   type RespondingUser,
   responderLabel,
   respondersBySlot,
@@ -106,7 +106,8 @@ const ActivityPickerCard = ({ activity, days }: CardProps) => {
   const upsertAvailability = useUpsertAvailabilityMutation();
   const { data } = useSessionQuery();
   const isOwner = data?.session?.userId === activity.createdBy;
-  const responders = respondersBySlot(activity.responses, data?.session?.userId);
+  const responders = respondersBySlot(activity.responses);
+  const viewerId = data?.session?.userId;
 
   const dirtyRef = useRef(false);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -241,7 +242,11 @@ const ActivityPickerCard = ({ activity, days }: CardProps) => {
               const dateStr = toDateStr(d);
               const selected = isDaySelected(dateStr);
               const dayResponders = responders[slotKey(dateStr)] ?? [];
-              const others = headcount(dayResponders);
+              const count = dayResponders.length;
+              const guests = guestCount(dayResponders);
+              // Fill intensity tracks other people only: a slot you alone
+              // picked shouldn't look as busy as one three of you picked.
+              const others = dayResponders.filter((person) => person.userId !== viewerId).length;
               const booked = activity.bookedSlots[dateStr] ?? false;
               return (
                 <div key={dateStr} className="group relative rounded-sm">
@@ -269,12 +274,19 @@ const ActivityPickerCard = ({ activity, days }: CardProps) => {
                       </span>
                     ) : null}
                   </button>
-                  {others > 0 && (
+                  {(count >= 2 || guests > 0) && (
                     <span
                       title={namesTitle(dayResponders)}
-                      className="absolute -top-1.5 -left-1.5 flex size-4 items-center justify-center rounded-full bg-emerald-900 text-[9px] font-medium text-primary-foreground"
+                      className="absolute -top-1.5 -left-1.5 flex items-center gap-0.5"
                     >
-                      {others}
+                      <span className="flex size-4 items-center justify-center rounded-full bg-emerald-900 text-[9px] font-medium text-primary-foreground">
+                        {count}
+                      </span>
+                      {guests > 0 && (
+                        <span className="flex h-4 items-center justify-center rounded-full bg-emerald-700 px-1 text-[9px] font-medium text-primary-foreground">
+                          +{guests}
+                        </span>
+                      )}
                     </span>
                   )}
                   {booked && <div className={bookedSlotOverlayClass} />}
@@ -320,7 +332,10 @@ const ActivityPickerCard = ({ activity, days }: CardProps) => {
                   {HOURS.map((hour) => {
                     const selected = hourSetForDate(slots, dateStr).has(hour);
                     const hourResponders = responders[slotKey(dateStr, hour)] ?? [];
-                    const others = headcount(hourResponders);
+                    const count = hourResponders.length;
+                    const others = hourResponders.filter(
+                      (person) => person.userId !== viewerId,
+                    ).length;
                     return (
                       <div
                         key={hour}
@@ -348,9 +363,11 @@ const ActivityPickerCard = ({ activity, days }: CardProps) => {
                               : "border-dashed border-muted-foreground/30 hover:border-primary/60 hover:bg-muted",
                         )}
                       >
-                        {others > 0 ? (
+                        {/* Only worth a number once it's more than one
+                            person: a lone pick is already shown by the fill. */}
+                        {count >= 2 ? (
                           <span className="text-[9px] font-medium text-primary-foreground">
-                            {others}
+                            {count}
                           </span>
                         ) : (
                           !selected && (

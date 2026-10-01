@@ -87,7 +87,7 @@ const ActivityDetail = () => {
 
   const isOwner = session.data?.session?.userId === activity.createdBy;
   const closed = isRespondByPassed(activity);
-  const responders = respondersBySlot(activity.responses, session.data?.session?.userId);
+  const responders = respondersBySlot(activity.responses);
 
   // Toggling is the save — no separate confirm step. Debounced so a run of
   // taps (or a drag across hours) sends one request rather than one each.
@@ -244,6 +244,7 @@ const ActivityDetail = () => {
             onChange={handleChange}
             readOnly={closed}
             responders={responders}
+            viewerId={session.data?.session?.userId}
             bookedSlots={activity.bookedSlots}
             bookings={activity.bookings}
             idealMemberCount={activity.idealMemberCount}

@@ -44,18 +44,14 @@ const keysForSlot = (slot: ResponseSlot): string[] => {
   );
 };
 
-/** Who picked each slot, keyed by `slotKey`. Pass `excludeUserId` to leave
- * the viewer out, so a cell's badge counts *other* people — their own pick
- * is already shown by the cell's fill. */
+/** Who picked each slot, keyed by `slotKey` — everyone, the viewer included.
+ * Counts shown to a user are "how many of us", not "how many besides me". */
 export const respondersBySlot = (
   responses: ActivityResponse[],
-  excludeUserId?: string,
 ): Record<string, RespondingUser[]> => {
   const bySlot: Record<string, RespondingUser[]> = {};
 
   for (const response of responses) {
-    if (response.userId === excludeUserId) continue;
-
     for (const slot of response.slots) {
       for (const key of keysForSlot(slot)) {
         const list = bySlot[key] ?? [];
@@ -67,6 +63,12 @@ export const respondersBySlot = (
 
   return bySlot;
 };
+
+/** How many of a slot's responders are bringing someone — shown as its own
+ * `+N` badge rather than folded into the headline count, so "three of us, two
+ * with guests" stays readable. */
+export const guestCount = (people: RespondingUser[]) =>
+  people.filter((person) => person.plusOne).length;
 
 /** The hour ranges a user offered on one date, formatted for display —
  * empty for a whole-day slot, which needs no qualifier. */
