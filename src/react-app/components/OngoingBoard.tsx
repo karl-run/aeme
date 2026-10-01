@@ -1,9 +1,11 @@
+import { Link } from "@tanstack/react-router";
 import { cn } from "cn";
 import { CheckIcon, PencilIcon, PlusIcon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import type { ActivitySlot } from "../../worker/db/schema.ts";
 import { bookingOverlayPercent, bookingsForDay } from "../lib/booking-slots.ts";
+import { type Responder, respondersBySlot, slotKey } from "../lib/responders.ts";
 import {
   bookedSlotOverlayClass,
   bookingOverlayClass,
@@ -13,7 +15,6 @@ import {
 import type { ActivityWithAvailability } from "../queries/activities.ts";
 import { useUpsertAvailabilityMutation } from "../queries/availability.ts";
 import { useSessionQuery } from "../queries/session.ts";
-import { AddBookingDialog } from "./AddBookingDialog.tsx";
 import { BookingInfoPopover } from "./BookingInfoPopover.tsx";
 import { EditActivityDialog } from "./EditActivityDialog.tsx";
 import { Button } from "./ui/button.tsx";
@@ -51,6 +52,11 @@ const formatHour = (h: number) => `${String(h).padStart(2, "0")}:00`;
 
 const formatDayLabel = (d: Date) =>
   d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
+
+/** Native tooltip naming who picked a cell — the full breakdown lives on the
+ * activity's own page, this is just the hover answer. */
+const namesTitle = (responders: Responder[]) =>
+  responders.length > 0 ? responders.map((responder) => responder.name).join(", ") : undefined;
 
 const hourSetForDate = (slots: ActivitySlot[], dateStr: string) => {
   const set = new Set<number>();
@@ -93,6 +99,7 @@ const ActivityPickerCard = ({ activity, days }: CardProps) => {
   const upsertAvailability = useUpsertAvailabilityMutation();
   const { data } = useSessionQuery();
   const isOwner = data?.session?.userId === activity.createdBy;
+  const responders = respondersBySlot(activity.responses, data?.session?.userId);
 
   const dirtyRef = useRef(false);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -149,7 +156,13 @@ const ActivityPickerCard = ({ activity, days }: CardProps) => {
       <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
         <div className="flex min-w-0 flex-col gap-1">
           <div className="flex items-center gap-2">
-            <h3 className="font-semibold">{activity.title}</h3>
+            <Link
+              to="/activities/$activityId"
+              params={{ activityId: activity.id }}
+              className="font-semibold hover:underline"
+            >
+              {activity.title}
+            </Link>
             {isOwner && (
               <EditActivityDialog
                 activity={activity}
@@ -189,26 +202,22 @@ const ActivityPickerCard = ({ activity, days }: CardProps) => {
         {days.map((d) => {
           const dateStr = toDateStr(d);
           return (
-            <AddBookingDialog
+            <Link
               key={dateStr}
-              activityId={activity.id}
-              date={dateStr}
-              trigger={
-                <button
-                  type="button"
-                  aria-label={`Add booking for ${formatDayLabel(d)}`}
-                  className="group relative grid w-full place-items-center px-1 pb-2 text-center text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
-                >
-                  <span className="col-start-1 row-start-1 whitespace-nowrap transition-opacity group-hover:opacity-0">
-                    {formatDayLabel(d)}
-                  </span>
-                  <span className="col-start-1 row-start-1 flex items-center gap-1 whitespace-nowrap opacity-0 transition-opacity group-hover:opacity-100">
-                    <PlusIcon className="size-4" />
-                    Book
-                  </span>
-                </button>
-              }
-            />
+              to="/activities/$activityId/book"
+              params={{ activityId: activity.id }}
+              search={{ date: dateStr, from: "home" }}
+              aria-label={`Add booking for ${formatDayLabel(d)}`}
+              className="group relative grid w-full place-items-center px-1 pb-2 text-center text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
+            >
+              <span className="col-start-1 row-start-1 whitespace-nowrap transition-opacity group-hover:opacity-0">
+                {formatDayLabel(d)}
+              </span>
+              <span className="col-start-1 row-start-1 flex items-center gap-1 whitespace-nowrap opacity-0 transition-opacity group-hover:opacity-100">
+                <PlusIcon className="size-4" />
+                Book
+              </span>
+            </Link>
           );
         })}
 
@@ -218,13 +227,15 @@ const ActivityPickerCard = ({ activity, days }: CardProps) => {
             {days.map((d) => {
               const dateStr = toDateStr(d);
               const selected = isDaySelected(dateStr);
-              const others = activity.othersCount[dateStr] ?? 0;
+              const dayResponders = responders[slotKey(dateStr)] ?? [];
+              const others = dayResponders.length;
               const booked = activity.bookedSlots[dateStr] ?? false;
               return (
                 <div key={dateStr} className="group relative rounded-sm">
                   <button
                     type="button"
                     onClick={() => toggleDay(dateStr)}
+                    title={namesTitle(dayResponders)}
                     className={cn(
                       "flex h-8 w-full items-center justify-center rounded-sm border transition-colors",
                       selected
@@ -246,7 +257,10 @@ const ActivityPickerCard = ({ activity, days }: CardProps) => {
                     ) : null}
                   </button>
                   {others > 0 && (
-                    <span className="absolute -top-1.5 -left-1.5 flex size-4 items-center justify-center rounded-full bg-emerald-900 text-[9px] font-medium text-primary-foreground">
+                    <span
+                      title={namesTitle(dayResponders)}
+                      className="absolute -top-1.5 -left-1.5 flex size-4 items-center justify-center rounded-full bg-emerald-900 text-[9px] font-medium text-primary-foreground"
+                    >
                       {others}
                     </span>
                   )}
@@ -256,6 +270,7 @@ const ActivityPickerCard = ({ activity, days }: CardProps) => {
                       activityId={activity.id}
                       bookings={bookingsForDay(activity.bookings, dateStr)}
                       idealMemberCount={activity.idealMemberCount}
+                      from="home"
                       className="absolute -bottom-2 -left-2"
                     />
                   )}
@@ -291,10 +306,12 @@ const ActivityPickerCard = ({ activity, days }: CardProps) => {
                 >
                   {HOURS.map((hour) => {
                     const selected = hourSetForDate(slots, dateStr).has(hour);
-                    const others = activity.othersCount[`${dateStr}|${hour}`] ?? 0;
+                    const hourResponders = responders[slotKey(dateStr, hour)] ?? [];
+                    const others = hourResponders.length;
                     return (
                       <div
                         key={hour}
+                        title={namesTitle(hourResponders)}
                         onPointerDown={() => {
                           const next = !selected;
                           dragValueRef.current = next;
@@ -338,6 +355,7 @@ const ActivityPickerCard = ({ activity, days }: CardProps) => {
                         activityId={activity.id}
                         bookings={[booking]}
                         idealMemberCount={activity.idealMemberCount}
+                        from="home"
                         className="absolute -top-2 -left-2"
                       />
                     </div>

@@ -1,12 +1,15 @@
+import { Link } from "@tanstack/react-router";
 import { CheckIcon, PencilIcon } from "lucide-react";
 
+import { splitByResponse } from "../lib/responders.ts";
 import type { ActivityWithAvailability } from "../queries/activities.ts";
+import { useChannelMembersQuery } from "../queries/channelMembers.ts";
 import { useSessionQuery } from "../queries/session.ts";
-import { AddBookingDialog } from "./AddBookingDialog.tsx";
-import { AvailabilityDialog } from "./AvailabilityDialog.tsx";
 import { BookingDetailsDialog } from "./BookingDetailsDialog.tsx";
 import { EditActivityDialog } from "./EditActivityDialog.tsx";
 import { Button } from "./ui/button.tsx";
+
+const MAX_NAMES = 3;
 
 const summarize = (activity: ActivityWithAvailability) => {
   if (activity.declined) return "You can't make it";
@@ -14,6 +17,13 @@ const summarize = (activity: ActivityWithAvailability) => {
 
   const days = new Set(activity.slots.map((slot) => slot.date)).size;
   return `You're in for ${days} day${days === 1 ? "" : "s"}`;
+};
+
+/** First few names in full, the rest as a count — the whole list is a click
+ * away on the activity's page. */
+const nameSummary = (names: string[]) => {
+  if (names.length <= MAX_NAMES) return names.join(", ");
+  return `${names.slice(0, MAX_NAMES).join(", ")} +${names.length - MAX_NAMES}`;
 };
 
 const formatDate = (date: string) =>
@@ -41,14 +51,25 @@ type Props = {
 export const ActivityCard = ({ activity }: Props) => {
   const isBooked = activity.bookings.length > 0;
   const { data } = useSessionQuery();
+  const members = useChannelMembersQuery();
   const isOwner = data?.session?.userId === activity.createdBy;
+
+  const { available, declined } = splitByResponse(activity.responses, members.data ?? []);
+
+  const closed = activity.endTime !== null && activity.endTime < new Date().toISOString();
 
   return (
     <div className="flex w-full flex-col gap-3 rounded-lg border border-border bg-card p-4">
       <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
         <div className="min-w-0">
           <div className="flex items-center gap-1.5">
-            <h3 className="font-medium">{activity.title}</h3>
+            <Link
+              to="/activities/$activityId"
+              params={{ activityId: activity.id }}
+              className="font-medium hover:underline"
+            >
+              {activity.title}
+            </Link>
             {isOwner && (
               <EditActivityDialog
                 activity={activity}
@@ -108,6 +129,7 @@ export const ActivityCard = ({ activity }: Props) => {
                 activityId={activity.id}
                 booking={booking}
                 idealMemberCount={activity.idealMemberCount}
+                from="home"
                 trigger={
                   <Button type="button" variant="outline" size="sm">
                     Details
@@ -118,26 +140,50 @@ export const ActivityCard = ({ activity }: Props) => {
           ))}
         </div>
       ) : (
-        <div className="flex items-center justify-between gap-4">
-          <span className="text-sm text-muted-foreground">
-            {activity.respondentCount > 0
-              ? activity.idealMemberCount
-                ? `${activity.respondentCount}/${activity.idealMemberCount} responded`
-                : `${activity.respondentCount} responded`
-              : "No responses yet"}
-            {" · "}
-            {summarize(activity)}
-          </span>
+        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+          <div className="flex min-w-0 flex-col text-sm text-muted-foreground">
+            <span>
+              {available.length > 0
+                ? activity.idealMemberCount
+                  ? `${available.length}/${activity.idealMemberCount} in`
+                  : `${available.length} in`
+                : "No one in yet"}
+              {declined.length > 0 && ` · ${declined.length} can't make it`}
+              {" · "}
+              {summarize(activity)}
+            </span>
+            {available.length > 0 && (
+              <span className="truncate text-xs">
+                {nameSummary(available.map((responder) => responder.name))}
+              </span>
+            )}
+          </div>
           <div className="flex shrink-0 gap-2">
-            <AvailabilityDialog activity={activity} />
-            <AddBookingDialog
-              activityId={activity.id}
-              trigger={
-                <Button type="button" size="sm">
-                  Book
-                </Button>
+            <Button
+              render={<Link to="/activities/$activityId" params={{ activityId: activity.id }} />}
+              variant="outline"
+              size="sm"
+            >
+              {closed
+                ? "View responses"
+                : activity.declined
+                  ? "Can't make it"
+                  : activity.slots.length > 0
+                    ? "Edit availability"
+                    : "I'm in"}
+            </Button>
+            <Button
+              render={
+                <Link
+                  to="/activities/$activityId/book"
+                  params={{ activityId: activity.id }}
+                  search={{ from: "home" }}
+                />
               }
-            />
+              size="sm"
+            >
+              Book
+            </Button>
           </div>
         </div>
       )}

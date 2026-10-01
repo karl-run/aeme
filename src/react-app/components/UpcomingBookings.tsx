@@ -45,6 +45,7 @@ export const UpcomingBookings = ({ activityId, bookings, idealMemberCount }: Pro
           activityId={activityId}
           booking={booking}
           idealMemberCount={idealMemberCount}
+          from="home"
           trigger={
             <button
               type="button"

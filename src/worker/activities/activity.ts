@@ -12,8 +12,6 @@ import {
 } from "../db/schema.ts";
 import { postOrUpdateMessage } from "../slack/messages.ts";
 
-const timeToMinutes = (time: string) => Number(time.slice(0, 2)) * 60 + Number(time.slice(3, 5));
-
 /** Builds the Slack `text` fallback + Block Kit `blocks` announcing a new
  * one-off activity suggestion — persistent activities aren't announced this
  * way, they're just always visible on the dashboard. `responders` is a list
@@ -149,18 +147,13 @@ export const announceActivitySuggestion = async (env: Env, activityId: string): 
   }
 };
 
-/** Key for an availability slot in an `othersCount` map: the date alone for
- * day-granularity activities, or `date|hour` per hour cell the slot's
- * from/to range overlaps for an hourly slot. */
-const slotCountKeys = (slot: ActivitySlot): string[] => {
-  if (!slot.from || !slot.to) return [slot.date];
-
-  const startHour = Math.floor(timeToMinutes(slot.from) / 60);
-  const endHourExclusive = Math.ceil(timeToMinutes(slot.to) / 60);
-  return Array.from(
-    { length: Math.max(0, endHourExclusive - startHour) },
-    (_, i) => `${slot.date}|${startHour + i}`,
-  );
+/** One user's answer to an activity: the slots they said they could make,
+ * or an explicit decline (never both — enforced by a DB check constraint). */
+export type ActivityResponse = {
+  userId: string;
+  name: string;
+  slots: ActivitySlot[];
+  declined: boolean;
 };
 
 export const createActivity = async (
@@ -283,34 +276,35 @@ export const listActivitiesForChannel = async (env: Env, channelId: string, user
     .orderBy(activitiesTable.created);
 
   const activityIds = rows.map((row) => row.id);
-  const othersAvailability = activityIds.length
+  const availabilityRows = activityIds.length
     ? await db
         .select({
           activityId: activityAvailabilityTable.activityId,
           userId: activityAvailabilityTable.userId,
+          name: usersTable.name,
           slots: activityAvailabilityTable.slots,
           declined: activityAvailabilityTable.declined,
         })
         .from(activityAvailabilityTable)
+        .innerJoin(usersTable, eq(usersTable.userId, activityAvailabilityTable.userId))
         .where(inArray(activityAvailabilityTable.activityId, activityIds))
     : [];
 
-  const othersCountByActivity = new Map<string, Record<string, number>>();
-  const respondentIdsByActivity = new Map<string, Set<string>>();
-  for (const row of othersAvailability) {
-    if (row.slots.length > 0 || row.declined) {
-      const respondents = respondentIdsByActivity.get(row.activityId) ?? new Set<string>();
-      respondents.add(row.userId);
-      respondentIdsByActivity.set(row.activityId, respondents);
-    }
+  // Named rather than tallied: the client needs to show *who* picked a slot,
+  // not just how many did — the same identities the Slack announcement
+  // already lists (see `announceActivitySuggestion`). Per-slot counts are
+  // derived from these client-side (see `lib/responders.ts`), so the two
+  // never disagree. The current user's own row is included; callers filter
+  // it out where a count should mean "other people".
+  const responsesByActivity = new Map<string, ActivityResponse[]>();
+  for (const row of availabilityRows) {
+    // A row with neither slots nor a decline is someone who cleared their
+    // answer — not a response.
+    if (row.slots.length === 0 && !row.declined) continue;
 
-    if (row.userId === userId) continue;
-
-    const counts = othersCountByActivity.get(row.activityId) ?? {};
-    for (const slot of row.slots) {
-      for (const key of slotCountKeys(slot)) counts[key] = (counts[key] ?? 0) + 1;
-    }
-    othersCountByActivity.set(row.activityId, counts);
+    const list = responsesByActivity.get(row.activityId) ?? [];
+    list.push({ userId: row.userId, name: row.name, slots: row.slots, declined: row.declined });
+    responsesByActivity.set(row.activityId, list);
   }
 
   const bookingRows = activityIds.length
@@ -381,8 +375,7 @@ export const listActivitiesForChannel = async (env: Env, channelId: string, user
     ...row,
     slots: row.slots ?? [],
     declined: row.declined ?? false,
-    respondentCount: respondentIdsByActivity.get(row.id)?.size ?? 0,
-    othersCount: othersCountByActivity.get(row.id) ?? {},
+    responses: responsesByActivity.get(row.id) ?? [],
     bookedSlots: bookedSlotsByActivity.get(row.id) ?? {},
     bookings: (bookingsByActivity.get(row.id) ?? []).map((booking) => ({
       id: booking.id,

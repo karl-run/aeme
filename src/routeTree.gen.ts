@@ -13,6 +13,8 @@ import { Route as IndexRouteImport } from './react-app/routes/index'
 import { Route as AboutRouteImport } from './react-app/routes/about'
 import { Route as LoginRouteImport } from './react-app/routes/login'
 import { Route as ProfileRouteImport } from './react-app/routes/profile'
+import { Route as ActivitiesActivityIdRouteImport } from './react-app/routes/activities.$activityId'
+import { Route as ActivitiesActivityIdBookRouteImport } from './react-app/routes/activities.$activityId_.book'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -34,18 +36,33 @@ const ProfileRoute = ProfileRouteImport.update({
   path: '/profile',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ActivitiesActivityIdRoute = ActivitiesActivityIdRouteImport.update({
+  id: '/activities/$activityId',
+  path: '/activities/$activityId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ActivitiesActivityIdBookRoute =
+  ActivitiesActivityIdBookRouteImport.update({
+    id: '/activities/$activityId_/book',
+    path: '/activities/$activityId/book',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
   '/login': typeof LoginRoute
   '/profile': typeof ProfileRoute
+  '/activities/$activityId': typeof ActivitiesActivityIdRoute
+  '/activities/$activityId/book': typeof ActivitiesActivityIdBookRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
   '/login': typeof LoginRoute
   '/profile': typeof ProfileRoute
+  '/activities/$activityId': typeof ActivitiesActivityIdRoute
+  '/activities/$activityId/book': typeof ActivitiesActivityIdBookRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -53,13 +70,34 @@ export interface FileRoutesById {
   '/about': typeof AboutRoute
   '/login': typeof LoginRoute
   '/profile': typeof ProfileRoute
+  '/activities/$activityId': typeof ActivitiesActivityIdRoute
+  '/activities/$activityId_/book': typeof ActivitiesActivityIdBookRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/about' | '/login' | '/profile'
+  fullPaths:
+    | '/'
+    | '/about'
+    | '/login'
+    | '/profile'
+    | '/activities/$activityId'
+    | '/activities/$activityId/book'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/about' | '/login' | '/profile'
-  id: '__root__' | '/' | '/about' | '/login' | '/profile'
+  to:
+    | '/'
+    | '/about'
+    | '/login'
+    | '/profile'
+    | '/activities/$activityId'
+    | '/activities/$activityId/book'
+  id:
+    | '__root__'
+    | '/'
+    | '/about'
+    | '/login'
+    | '/profile'
+    | '/activities/$activityId'
+    | '/activities/$activityId_/book'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -67,6 +105,8 @@ export interface RootRouteChildren {
   AboutRoute: typeof AboutRoute
   LoginRoute: typeof LoginRoute
   ProfileRoute: typeof ProfileRoute
+  ActivitiesActivityIdRoute: typeof ActivitiesActivityIdRoute
+  ActivitiesActivityIdBookRoute: typeof ActivitiesActivityIdBookRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -99,6 +139,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProfileRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/activities/$activityId': {
+      id: '/activities/$activityId'
+      path: '/activities/$activityId'
+      fullPath: '/activities/$activityId'
+      preLoaderRoute: typeof ActivitiesActivityIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/activities/$activityId_/book': {
+      id: '/activities/$activityId_/book'
+      path: '/activities/$activityId/book'
+      fullPath: '/activities/$activityId/book'
+      preLoaderRoute: typeof ActivitiesActivityIdBookRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -107,6 +161,8 @@ const rootRouteChildren: RootRouteChildren = {
   AboutRoute: AboutRoute,
   LoginRoute: LoginRoute,
   ProfileRoute: ProfileRoute,
+  ActivitiesActivityIdRoute: ActivitiesActivityIdRoute,
+  ActivitiesActivityIdBookRoute: ActivitiesActivityIdBookRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

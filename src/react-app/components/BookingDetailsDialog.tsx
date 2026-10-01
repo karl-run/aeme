@@ -1,9 +1,9 @@
+import { Link } from "@tanstack/react-router";
 import type { ReactElement } from "react";
 
 import { isUrl } from "../lib/is-url.ts";
 import type { ActivityWithAvailability } from "../queries/activities.ts";
 import { useSessionQuery } from "../queries/session.ts";
-import { AddBookingDialog } from "./AddBookingDialog.tsx";
 import { Button } from "./ui/button.tsx";
 import {
   Dialog,
@@ -31,9 +31,17 @@ type Props = {
   trigger: ReactElement;
   /** Advisory headcount, shown alongside the attendee count as "N/ideal". */
   idealMemberCount?: number | null;
+  /** Where the edit link should return to once it's done. */
+  from: "home" | "activity";
 };
 
-export const BookingDetailsDialog = ({ activityId, booking, trigger, idealMemberCount }: Props) => {
+export const BookingDetailsDialog = ({
+  activityId,
+  booking,
+  trigger,
+  idealMemberCount,
+  from,
+}: Props) => {
   const { data } = useSessionQuery();
   const isOwner = data?.session?.userId === booking.createdBy;
 
@@ -86,20 +94,17 @@ export const BookingDetailsDialog = ({ activityId, booking, trigger, idealMember
           </Button>
           <DialogClose render={<Button type="button" variant="outline" />}>Close</DialogClose>
           {isOwner && (
-            <AddBookingDialog
-              activityId={activityId}
-              booking={{
-                id: booking.id,
-                date: booking.date,
-                from: booking.from,
-                to: booking.to,
-                description: booking.description,
-                location: booking.location,
-                attendeeUserIds: booking.attendeeUserIds,
-                guestNames: booking.guestNames,
-              }}
-              trigger={<Button type="button">Edit</Button>}
-            />
+            <Button
+              render={
+                <Link
+                  to="/activities/$activityId/book"
+                  params={{ activityId }}
+                  search={{ bookingId: booking.id, from }}
+                />
+              }
+            >
+              Edit
+            </Button>
           )}
         </DialogFooter>
       </DialogContent>

@@ -1,9 +1,12 @@
+import { Link } from "@tanstack/react-router";
 import { cn } from "cn";
 import { PlusIcon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import type { ActivitySlot } from "../../worker/db/schema.ts";
 import { bookingOverlayPercent, bookingsForDay } from "../lib/booking-slots.ts";
+import type { Responder } from "../lib/responders.ts";
+import { slotKey } from "../lib/responders.ts";
 import {
   bookedSlotOverlayClass,
   bookingOverlayClass,
@@ -11,7 +14,6 @@ import {
   othersSlotClass,
 } from "../lib/slot-color.ts";
 import type { ActivityWithAvailability } from "../queries/activities.ts";
-import { AddBookingDialog } from "./AddBookingDialog.tsx";
 import { BookingInfoPopover } from "./BookingInfoPopover.tsx";
 import { Button } from "./ui/button.tsx";
 
@@ -44,6 +46,11 @@ const formatHour = (h: number) => `${String(h).padStart(2, "0")}:00`;
 const formatDayLabel = (d: Date) =>
   d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
 
+/** Native tooltip naming who picked a cell — the full picture lives in the
+ * breakdown below the grid, this is just the hover answer. */
+const namesTitle = (responders: Responder[]) =>
+  responders.length > 0 ? responders.map((responder) => responder.name).join(", ") : undefined;
+
 type Props = {
   activityId: string;
   granularity: "day" | "hourly";
@@ -53,11 +60,10 @@ type Props = {
   value: ActivitySlot[];
   onChange: (slots: ActivitySlot[]) => void;
   readOnly?: boolean;
-  /** Count of other users who picked each slot, keyed by `date` (day
-   * granularity) or `date|hour` (hourly granularity). */
-  othersCount?: Record<string, number>;
-  /** Whether each slot has an actual booking, keyed the same way as
-   * `othersCount`. */
+  /** Other users who picked each slot, keyed by `slotKey` — the viewer's own
+   * row is excluded by the caller, since their pick shows as the cell fill. */
+  responders?: Record<string, Responder[]>;
+  /** Whether each slot has an actual booking, keyed the same way. */
   bookedSlots?: Record<string, boolean>;
   bookings?: ActivityWithAvailability["bookings"];
   /** Advisory headcount, shown alongside a booking's attendee count. */
@@ -71,7 +77,7 @@ export const AvailabilityGrid = ({
   value,
   onChange,
   readOnly = false,
-  othersCount = {},
+  responders = {},
   bookedSlots = {},
   bookings = [],
   idealMemberCount,
@@ -174,7 +180,8 @@ export const AvailabilityGrid = ({
           {days.map((d) => {
             const dateStr = toDateStr(d);
             const selected = isDaySelected(dateStr);
-            const others = othersCount[dateStr] ?? 0;
+            const dayResponders = responders[slotKey(dateStr)] ?? [];
+            const others = dayResponders.length;
             const booked = bookedSlots[dateStr] ?? false;
             return (
               <div key={dateStr} className="group relative hover:z-10">
@@ -182,6 +189,7 @@ export const AvailabilityGrid = ({
                   type="button"
                   disabled={readOnly}
                   onClick={() => toggleDay(dateStr)}
+                  title={namesTitle(dayResponders)}
                   className={cn(
                     "flex flex-col items-center rounded-md border border-input px-3 py-2 text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-60",
                     selected
@@ -198,7 +206,10 @@ export const AvailabilityGrid = ({
                   {booked && <div className={bookedSlotOverlayClass} />}
                 </button>
                 {others > 0 && (
-                  <span className="absolute -top-1.5 -left-1.5 flex size-4 items-center justify-center rounded-full bg-emerald-900 text-[9px] font-medium text-primary-foreground">
+                  <span
+                    title={namesTitle(dayResponders)}
+                    className="absolute -top-1.5 -left-1.5 flex size-4 items-center justify-center rounded-full bg-emerald-900 text-[9px] font-medium text-primary-foreground"
+                  >
                     {others}
                   </span>
                 )}
@@ -207,23 +218,19 @@ export const AvailabilityGrid = ({
                     activityId={activityId}
                     bookings={bookingsForDay(bookings, dateStr)}
                     idealMemberCount={idealMemberCount}
+                    from="activity"
                     className="absolute -bottom-2 -left-2"
                   />
                 )}
-                <AddBookingDialog
-                  activityId={activityId}
-                  date={dateStr}
-                  trigger={
-                    <button
-                      type="button"
-                      onClick={(e) => e.stopPropagation()}
-                      aria-label={`Add booking for ${formatDayLabel(d)}`}
-                      className="absolute -top-2 -right-2 flex size-6 items-center justify-center rounded-full bg-background text-muted-foreground opacity-0 shadow transition-opacity hover:text-foreground group-hover:opacity-100"
-                    >
-                      <PlusIcon className="size-4" />
-                    </button>
-                  }
-                />
+                <Link
+                  to="/activities/$activityId/book"
+                  params={{ activityId }}
+                  search={{ date: dateStr, from: "activity" }}
+                  aria-label={`Add booking for ${formatDayLabel(d)}`}
+                  className="absolute -top-2 -right-2 flex size-6 items-center justify-center rounded-full bg-background text-muted-foreground opacity-0 shadow transition-opacity hover:text-foreground group-hover:opacity-100"
+                >
+                  <PlusIcon className="size-4" />
+                </Link>
               </div>
             );
           })}
@@ -239,26 +246,22 @@ export const AvailabilityGrid = ({
           {days.map((d) => {
             const dateStr = toDateStr(d);
             return (
-              <AddBookingDialog
+              <Link
                 key={dateStr}
-                activityId={activityId}
-                date={dateStr}
-                trigger={
-                  <button
-                    type="button"
-                    aria-label={`Add booking for ${formatDayLabel(d)}`}
-                    className="group relative grid w-full place-items-center px-1 pb-1 text-center text-xs text-muted-foreground transition-colors hover:text-foreground"
-                  >
-                    <span className="col-start-1 row-start-1 whitespace-nowrap transition-opacity group-hover:opacity-0">
-                      {formatDayLabel(d)}
-                    </span>
-                    <span className="col-start-1 row-start-1 flex items-center gap-1 whitespace-nowrap opacity-0 transition-opacity group-hover:opacity-100">
-                      <PlusIcon className="size-4" />
-                      Book
-                    </span>
-                  </button>
-                }
-              />
+                to="/activities/$activityId/book"
+                params={{ activityId }}
+                search={{ date: dateStr, from: "activity" }}
+                aria-label={`Add booking for ${formatDayLabel(d)}`}
+                className="group relative grid w-full place-items-center px-1 pb-1 text-center text-xs text-muted-foreground transition-colors hover:text-foreground"
+              >
+                <span className="col-start-1 row-start-1 whitespace-nowrap transition-opacity group-hover:opacity-0">
+                  {formatDayLabel(d)}
+                </span>
+                <span className="col-start-1 row-start-1 flex items-center gap-1 whitespace-nowrap opacity-0 transition-opacity group-hover:opacity-100">
+                  <PlusIcon className="size-4" />
+                  Book
+                </span>
+              </Link>
             );
           })}
 
@@ -283,10 +286,12 @@ export const AvailabilityGrid = ({
               >
                 {HOURS.map((hour) => {
                   const selected = hourSetForDate(dateStr).has(hour);
-                  const others = othersCount[`${dateStr}|${hour}`] ?? 0;
+                  const hourResponders = responders[slotKey(dateStr, hour)] ?? [];
+                  const others = hourResponders.length;
                   return (
                     <div
                       key={hour}
+                      title={namesTitle(hourResponders)}
                       onPointerDown={() => {
                         if (readOnly) return;
                         const next = !selected;
@@ -324,6 +329,7 @@ export const AvailabilityGrid = ({
                       activityId={activityId}
                       bookings={[booking]}
                       idealMemberCount={idealMemberCount}
+                      from="activity"
                       className="absolute -top-2 -left-2"
                     />
                   </div>
