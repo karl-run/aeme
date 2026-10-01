@@ -158,7 +158,15 @@ export const activityBookingsTable = sqliteTable(
     from: text().notNull(),
     to: text().notNull(),
     description: text().notNull().default(""),
+    /** Free-text place, used only when no `locationId` is set — the two are
+     * mutually exclusive, enforced by the router's zod schema rather than a
+     * check constraint, since adding one to this existing table would mean a
+     * full SQLite table rebuild. */
     location: text().notNull().default(""),
+    /** One of the activity's fixed locations, when the booker picked one
+     * instead of typing a place. Always null for a non-persistent activity,
+     * which has no fixed locations to pick. */
+    locationId: text("location_id").references(() => activityLocationsTable.id),
     /** Slack message timestamp of the announcement post for this booking, so
      * it can be edited in place (via `chat.update`) instead of re-posted as
      * the booking's data changes. Null until the post succeeds. */
@@ -171,6 +179,36 @@ export const activityBookingsTable = sqliteTable(
       sql`${t.from} GLOB '[0-2][0-9]:[0-5][0-9]' AND ${t.to} GLOB '[0-2][0-9]:[0-5][0-9]'`,
     ),
     check("activity_bookings_from_before_to", sql`${t.from} < ${t.to}`),
+  ],
+);
+
+/** A named place a persistent activity repeats at — "the court", "the usual
+ * pub" — so booking one doesn't mean retyping the same address every week.
+ * Only persistent activities have these (enforced by the router, not a check
+ * constraint: SQLite can't express a cross-table one). Picking one is never
+ * required; a booking can still carry free-text `location` instead.
+ *
+ * Retired places are archived rather than deleted, so bookings that already
+ * reference them keep rendering — see `archiveActivityLocation`. */
+export const activityLocationsTable = sqliteTable(
+  "activity_locations",
+  {
+    id: text().primaryKey(),
+    activityId: text("activity_id")
+      .notNull()
+      .references(() => activitiesTable.id),
+    name: text().notNull(),
+    mapsUrl: text("maps_url").notNull(),
+    archived: integer({ mode: "boolean" }).notNull().default(false),
+    created: text().notNull(),
+  },
+  (t) => [
+    // Partial, so archiving a place frees its name for re-use rather than
+    // blocking it forever.
+    uniqueIndex("activity_locations_activity_name")
+      .on(t.activityId, t.name)
+      .where(sql`${t.archived} = 0`),
+    check("activity_locations_name_not_empty", sql`length(trim(${t.name})) > 0`),
   ],
 );
 

@@ -12,6 +12,11 @@ import {
 import { upsertAvailability } from "../activities/availability.ts";
 import { createBooking, getBookingById, updateBooking } from "../activities/booking.ts";
 import { buildBookingIcs } from "../activities/ics.ts";
+import {
+  archiveActivityLocation,
+  createActivityLocation,
+  getActivityLocationById,
+} from "../activities/location.ts";
 import { completeLogin } from "../auth/otp.ts";
 import {
   deleteSession,
@@ -125,13 +130,25 @@ const createBookingSchema = z
     to: z.string().regex(/^\d{2}:\d{2}$/),
     description: z.string().trim(),
     location: z.string().trim(),
+    /** One of the activity's fixed locations, or null for free text (or no
+     * place at all) — picking one is never required. */
+    locationId: z.string().nullable(),
     attendeeUserIds: z.array(z.string()),
     guestNames: z.array(z.string().trim().min(1)),
   })
   .refine((data) => data.from < data.to, {
     message: "from must be before to",
     path: ["to"],
+  })
+  .refine((data) => data.locationId === null || data.location === "", {
+    message: "A booking carries either a fixed location or free text, not both.",
+    path: ["location"],
   });
+
+const createLocationSchema = z.object({
+  name: z.string().trim().min(1),
+  mapsUrl: z.url(),
+});
 
 export const apiRouter = new Hono<{ Bindings: Env }>()
   .get("/session", async (c) => {
@@ -334,13 +351,24 @@ export const apiRouter = new Hono<{ Bindings: Env }>()
       return c.json({ error: "Not found" }, 404);
     }
 
-    const { date, from, to, description, location, attendeeUserIds, guestNames } =
+    const { date, from, to, description, location, locationId, attendeeUserIds, guestNames } =
       c.req.valid("json");
 
     const members = await listChannelMembers(c.env, session.channelId);
     const memberIds = new Set(members.map((member) => member.userId));
     if (attendeeUserIds.some((userId) => !memberIds.has(userId))) {
       return c.json({ error: "Attendee is not a member of this channel." }, 400);
+    }
+
+    // A fixed location has to be one of this activity's own — never another
+    // activity's, and never an arbitrary id.
+    let fixedLocation: { name: string; mapsUrl: string } | null = null;
+    if (locationId !== null) {
+      const resolved = await getActivityLocationById(c.env, locationId);
+      if (!resolved || resolved.activityId !== activityId) {
+        return c.json({ error: "Location is not one of this activity's." }, 400);
+      }
+      fixedLocation = { name: resolved.name, mapsUrl: resolved.mapsUrl };
     }
 
     const booking = await createBooking(c.env, {
@@ -354,6 +382,8 @@ export const apiRouter = new Hono<{ Bindings: Env }>()
       to,
       description,
       location,
+      locationId,
+      fixedLocation,
       attendeeUserIds,
       guestNames,
     });
@@ -384,13 +414,24 @@ export const apiRouter = new Hono<{ Bindings: Env }>()
         return c.json({ error: "Only the booking's creator can edit it." }, 403);
       }
 
-      const { date, from, to, description, location, attendeeUserIds, guestNames } =
+      const { date, from, to, description, location, locationId, attendeeUserIds, guestNames } =
         c.req.valid("json");
 
       const members = await listChannelMembers(c.env, session.channelId);
       const memberIds = new Set(members.map((member) => member.userId));
       if (attendeeUserIds.some((userId) => !memberIds.has(userId))) {
         return c.json({ error: "Attendee is not a member of this channel." }, 400);
+      }
+
+      // A fixed location has to be one of this activity's own — never another
+      // activity's, and never an arbitrary id.
+      let fixedLocation: { name: string; mapsUrl: string } | null = null;
+      if (locationId !== null) {
+        const resolved = await getActivityLocationById(c.env, locationId);
+        if (!resolved || resolved.activityId !== activityId) {
+          return c.json({ error: "Location is not one of this activity's." }, 400);
+        }
+        fixedLocation = { name: resolved.name, mapsUrl: resolved.mapsUrl };
       }
 
       await updateBooking(c.env, {
@@ -404,6 +445,8 @@ export const apiRouter = new Hono<{ Bindings: Env }>()
         to,
         description,
         location,
+        locationId,
+        fixedLocation,
         attendeeUserIds,
         guestNames,
         slackMessageTs: booking.slackMessageTs,
@@ -412,6 +455,57 @@ export const apiRouter = new Hono<{ Bindings: Env }>()
       return c.json({ success: true });
     },
   )
+  .post("/activities/:id/locations", zValidator("json", createLocationSchema), async (c) => {
+    const sessionId = getCookie(c, SESSION_COOKIE_NAME);
+    const session = sessionId ? await getSessionMeta(c.env, sessionId) : null;
+    if (!session) return c.json({ error: "Unauthorized" }, 401);
+
+    const activityId = c.req.param("id");
+    const activity = await getActivityById(c.env, activityId);
+    if (!activity || activity.channelId !== session.channelId) {
+      return c.json({ error: "Not found" }, 404);
+    }
+    if (activity.createdBy !== session.userId) {
+      return c.json({ error: "Only the activity's creator can edit it." }, 403);
+    }
+    if (!activity.persistent) {
+      return c.json({ error: "Only repeating activities have fixed locations." }, 400);
+    }
+
+    const { name, mapsUrl } = c.req.valid("json");
+
+    try {
+      const location = await createActivityLocation(c.env, { activityId, name, mapsUrl });
+      return c.json({ location });
+    } catch {
+      // The only constraint that can realistically bite here is the partial
+      // unique index on (activity, name).
+      return c.json({ error: "There's already a location with that name." }, 400);
+    }
+  })
+  .delete("/activities/:id/locations/:locationId", async (c) => {
+    const sessionId = getCookie(c, SESSION_COOKIE_NAME);
+    const session = sessionId ? await getSessionMeta(c.env, sessionId) : null;
+    if (!session) return c.json({ error: "Unauthorized" }, 401);
+
+    const activityId = c.req.param("id");
+    const activity = await getActivityById(c.env, activityId);
+    if (!activity || activity.channelId !== session.channelId) {
+      return c.json({ error: "Not found" }, 404);
+    }
+    if (activity.createdBy !== session.userId) {
+      return c.json({ error: "Only the activity's creator can edit it." }, 403);
+    }
+
+    const locationId = c.req.param("locationId");
+    const location = await getActivityLocationById(c.env, locationId);
+    if (!location || location.activityId !== activityId) {
+      return c.json({ error: "Not found" }, 404);
+    }
+
+    await archiveActivityLocation(c.env, locationId);
+    return c.json({ success: true });
+  })
   .get("/bookings/:bookingId/ics", async (c) => {
     // Deliberately public (no session check): the bookingId is an
     // unguessable UUID, and calendar apps/browsers fetching this link won't
@@ -423,6 +517,10 @@ export const apiRouter = new Hono<{ Bindings: Env }>()
     const activity = await getActivityById(c.env, booking.activityId);
     if (!activity) return c.notFound();
 
+    const bookingLocation = booking.locationId
+      ? await getActivityLocationById(c.env, booking.locationId)
+      : null;
+
     const ics = buildBookingIcs({
       bookingId: booking.id,
       created: booking.created,
@@ -432,6 +530,9 @@ export const apiRouter = new Hono<{ Bindings: Env }>()
       to: booking.to,
       description: booking.description,
       location: booking.location,
+      fixedLocation: bookingLocation
+        ? { name: bookingLocation.name, mapsUrl: bookingLocation.mapsUrl }
+        : null,
     });
 
     return c.body(ics, 200, {

@@ -90,6 +90,7 @@ const BookActivity = () => {
               to: booking.to,
               description: booking.description,
               location: booking.location,
+              locationId: booking.fixedLocation?.id ?? null,
               attendeeUserIds: booking.attendeeUserIds,
               guestNames: booking.guestNames,
             }

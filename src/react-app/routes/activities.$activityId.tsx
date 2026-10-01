@@ -3,6 +3,7 @@ import { ArrowLeftIcon, PencilIcon, PlusIcon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import type { ActivitySlot } from "../../worker/db/schema.ts";
+import { ActivityLocations } from "../components/ActivityLocations.tsx";
 import { AvailabilityGrid } from "../components/AvailabilityGrid.tsx";
 import { BookingDetailsDialog } from "../components/BookingDetailsDialog.tsx";
 import { EditActivityDialog } from "../components/EditActivityDialog.tsx";
@@ -205,6 +206,12 @@ const ActivityDetail = () => {
       <section className="w-full max-w-2xl">
         <ResponderBreakdown activity={activity} />
       </section>
+
+      {activity.persistent && (
+        <section className="w-full max-w-2xl">
+          <ActivityLocations activity={activity} canEdit={isOwner} />
+        </section>
+      )}
 
       <section className="flex w-full max-w-2xl flex-col gap-2">
         <h2 className="text-lg font-semibold">Bookings</h2>

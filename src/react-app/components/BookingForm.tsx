@@ -1,6 +1,6 @@
 import { cn } from "cn";
 import { format } from "date-fns";
-import { CalendarIcon, XIcon } from "lucide-react";
+import { CalendarIcon, MapPinIcon, XIcon } from "lucide-react";
 import { type FormEvent, type KeyboardEvent, useState } from "react";
 
 import { availableForBooking, offersOnDate } from "../lib/responders.ts";
@@ -31,6 +31,7 @@ export type EditableBooking = {
   to: string;
   description: string;
   location: string;
+  locationId: string | null;
   attendeeUserIds: string[];
   guestNames: string[];
 };
@@ -57,6 +58,9 @@ export const BookingForm = ({ activity, booking, initialDate, onDone, onCancel }
   const [to, setTo] = useState(booking?.to ?? "");
   const [description, setDescription] = useState(booking?.description ?? "");
   const [location, setLocation] = useState(booking?.location ?? "");
+  // A booking carries either a fixed location or free text, never both — the
+  // server refuses the combination, so the form can't offer it.
+  const [locationId, setLocationId] = useState<string | null>(booking?.locationId ?? null);
   const [attendeeUserIds, setAttendeeUserIds] = useState<string[]>(booking?.attendeeUserIds ?? []);
   const [guestNames, setGuestNames] = useState<string[]>(booking?.guestNames ?? []);
   const [guestNameInput, setGuestNameInput] = useState("");
@@ -146,7 +150,8 @@ export const BookingForm = ({ activity, booking, initialDate, onDone, onCancel }
       from,
       to,
       description,
-      location,
+      location: locationId === null ? location : "",
+      locationId,
       attendeeUserIds,
       guestNames,
     };
@@ -252,14 +257,66 @@ export const BookingForm = ({ activity, booking, initialDate, onDone, onCancel }
         />
       </div>
 
-      <div className="flex flex-col gap-1.5">
+      <div className="flex flex-col gap-2">
         <Label htmlFor="booking-location">Location</Label>
-        <Input
-          id="booking-location"
-          value={location}
-          onChange={(e) => setLocation(e.target.value)}
-          placeholder="Address or Google Maps link"
-        />
+
+        {activity.locations.length > 0 && (
+          <div className="flex flex-wrap items-center gap-2">
+            {activity.locations.map((fixed) => {
+              const selected = fixed.id === locationId;
+              return (
+                <span
+                  key={fixed.id}
+                  className={cn(
+                    "flex items-center rounded-md border text-sm transition-colors",
+                    selected
+                      ? "border-primary bg-primary text-primary-foreground"
+                      : "border-border",
+                  )}
+                >
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setLocationId(selected ? null : fixed.id);
+                      setLocation("");
+                    }}
+                    className={cn("py-1.5 pr-1.5 pl-3", !selected && "hover:bg-muted")}
+                  >
+                    {fixed.name}
+                  </button>
+                  <a
+                    href={fixed.mapsUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    aria-label={`Open ${fixed.name} in Google Maps`}
+                    title={fixed.mapsUrl}
+                    className="py-1.5 pr-2.5 pl-1 opacity-60 hover:opacity-100"
+                  >
+                    <MapPinIcon className="size-3.5" />
+                  </a>
+                </span>
+              );
+            })}
+            {locationId !== null && (
+              <Button type="button" variant="ghost" size="xs" onClick={() => setLocationId(null)}>
+                Clear
+              </Button>
+            )}
+          </div>
+        )}
+
+        {locationId === null && (
+          <Input
+            id="booking-location"
+            value={location}
+            onChange={(e) => setLocation(e.target.value)}
+            placeholder={
+              activity.locations.length > 0
+                ? "Or somewhere else — address or Google Maps link"
+                : "Address or Google Maps link"
+            }
+          />
+        )}
       </div>
 
       <div className="flex flex-col gap-2">

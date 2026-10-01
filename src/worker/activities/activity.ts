@@ -7,6 +7,7 @@ import {
   activityAvailabilityTable,
   activityBookingAttendeesTable,
   activityBookingsTable,
+  activityLocationsTable,
   type ActivitySlot,
   usersTable,
 } from "../db/schema.ts";
@@ -307,6 +308,31 @@ export const listActivitiesForChannel = async (env: Env, channelId: string, user
     responsesByActivity.set(row.activityId, list);
   }
 
+  const locationRows = activityIds.length
+    ? await db
+        .select({
+          id: activityLocationsTable.id,
+          activityId: activityLocationsTable.activityId,
+          name: activityLocationsTable.name,
+          mapsUrl: activityLocationsTable.mapsUrl,
+        })
+        .from(activityLocationsTable)
+        .where(
+          and(
+            inArray(activityLocationsTable.activityId, activityIds),
+            eq(activityLocationsTable.archived, false),
+          ),
+        )
+        .orderBy(activityLocationsTable.created)
+    : [];
+
+  const locationsByActivity = new Map<string, { id: string; name: string; mapsUrl: string }[]>();
+  for (const row of locationRows) {
+    const list = locationsByActivity.get(row.activityId) ?? [];
+    list.push({ id: row.id, name: row.name, mapsUrl: row.mapsUrl });
+    locationsByActivity.set(row.activityId, list);
+  }
+
   const bookingRows = activityIds.length
     ? await db
         .select({
@@ -317,11 +343,20 @@ export const listActivitiesForChannel = async (env: Env, channelId: string, user
           to: activityBookingsTable.to,
           description: activityBookingsTable.description,
           location: activityBookingsTable.location,
+          locationId: activityBookingsTable.locationId,
+          locationName: activityLocationsTable.name,
+          locationMapsUrl: activityLocationsTable.mapsUrl,
           createdBy: activityBookingsTable.createdBy,
           createdByName: usersTable.name,
         })
         .from(activityBookingsTable)
         .innerJoin(usersTable, eq(usersTable.userId, activityBookingsTable.createdBy))
+        // Left, and deliberately not filtered on `archived`: a booking that
+        // used a since-retired place still shows where it was.
+        .leftJoin(
+          activityLocationsTable,
+          eq(activityLocationsTable.id, activityBookingsTable.locationId),
+        )
         .where(inArray(activityBookingsTable.activityId, activityIds))
     : [];
 
@@ -376,6 +411,7 @@ export const listActivitiesForChannel = async (env: Env, channelId: string, user
     slots: row.slots ?? [],
     declined: row.declined ?? false,
     responses: responsesByActivity.get(row.id) ?? [],
+    locations: locationsByActivity.get(row.id) ?? [],
     bookedSlots: bookedSlotsByActivity.get(row.id) ?? {},
     bookings: (bookingsByActivity.get(row.id) ?? []).map((booking) => ({
       id: booking.id,
@@ -384,6 +420,14 @@ export const listActivitiesForChannel = async (env: Env, channelId: string, user
       to: booking.to,
       description: booking.description,
       location: booking.location,
+      fixedLocation:
+        booking.locationId && booking.locationName && booking.locationMapsUrl
+          ? {
+              id: booking.locationId,
+              name: booking.locationName,
+              mapsUrl: booking.locationMapsUrl,
+            }
+          : null,
       createdBy: booking.createdBy,
       createdByName: booking.createdByName,
       attendeeUserIds: attendeeIdsByBooking.get(booking.id) ?? [],

@@ -58,17 +58,31 @@ export const BookingDetailsDialog = ({
 
         <div className="flex flex-col gap-2 text-sm">
           {booking.description && <p>{booking.description}</p>}
-          {booking.location && (
+          {booking.fixedLocation ? (
             <p>
               <span className="text-muted-foreground">Location:</span>{" "}
-              {isUrl(booking.location) ? (
-                <a href={booking.location} target="_blank" rel="noreferrer" className="underline">
-                  {booking.location}
-                </a>
-              ) : (
-                booking.location
-              )}
+              <a
+                href={booking.fixedLocation.mapsUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="underline"
+              >
+                {booking.fixedLocation.name}
+              </a>
             </p>
+          ) : (
+            booking.location && (
+              <p>
+                <span className="text-muted-foreground">Location:</span>{" "}
+                {isUrl(booking.location) ? (
+                  <a href={booking.location} target="_blank" rel="noreferrer" className="underline">
+                    {booking.location}
+                  </a>
+                ) : (
+                  booking.location
+                )}
+              </p>
+            )
           )}
           <p>
             <span className="text-muted-foreground">Booked by</span> {booking.createdByName}

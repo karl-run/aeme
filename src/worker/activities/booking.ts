@@ -20,6 +20,14 @@ const isUrl = (value: string) => {
   }
 };
 
+/** A place picked from the activity's fixed locations, already resolved by
+ * the caller — null when the booking carries free text (or nothing) instead. */
+type FixedLocation = { name: string; mapsUrl: string } | null;
+
+/** Slack mrkdwn link syntax is `<url|label>`, so a label carrying any of
+ * `<`, `>` or `|` would break out of it. */
+const sanitizeLinkLabel = (label: string) => label.replace(/[<>|]/g, " ");
+
 const buildBookingMessage = (params: {
   bookingId: string;
   activityTitle: string;
@@ -31,6 +39,7 @@ const buildBookingMessage = (params: {
   guestNames: string[];
   description: string;
   location: string;
+  fixedLocation: FixedLocation;
 }) => {
   const formattedDate = new Date(`${params.date}T00:00:00`).toLocaleDateString("en-US", {
     weekday: "long",
@@ -64,15 +73,17 @@ const buildBookingMessage = (params: {
     ...(params.description
       ? [{ type: "section", text: { type: "mrkdwn", text: `📝 ${params.description}` } }]
       : []),
-    ...(params.location
+    ...(params.fixedLocation || params.location
       ? [
           {
             type: "section",
             text: {
               type: "mrkdwn",
-              text: isUrl(params.location)
-                ? `📍 <${params.location}|Location>`
-                : `📍 ${params.location}`,
+              text: params.fixedLocation
+                ? `📍 <${params.fixedLocation.mapsUrl}|${sanitizeLinkLabel(params.fixedLocation.name)}>`
+                : isUrl(params.location)
+                  ? `📍 <${params.location}|Location>`
+                  : `📍 ${params.location}`,
             },
           },
         ]
@@ -153,6 +164,8 @@ export const createBooking = async (
     to: string;
     description: string;
     location: string;
+    locationId: string | null;
+    fixedLocation: FixedLocation;
     attendeeUserIds: string[];
     guestNames: string[];
   },
@@ -171,6 +184,7 @@ export const createBooking = async (
     to: params.to,
     description: params.description,
     location: params.location,
+    locationId: params.locationId,
     created: now,
   });
   const attendeeInserts = params.attendeeUserIds.map((userId) =>
@@ -197,6 +211,7 @@ export const createBooking = async (
     guestNames: params.guestNames,
     description: params.description,
     location: params.location,
+    fixedLocation: params.fixedLocation,
   });
   await announceBooking(env, {
     bookingId,
@@ -223,6 +238,8 @@ export const updateBooking = async (
     to: string;
     description: string;
     location: string;
+    locationId: string | null;
+    fixedLocation: FixedLocation;
     attendeeUserIds: string[];
     guestNames: string[];
     slackMessageTs: string | null;
@@ -238,6 +255,7 @@ export const updateBooking = async (
       to: params.to,
       description: params.description,
       location: params.location,
+      locationId: params.locationId,
     })
     .where(eq(activityBookingsTable.id, params.bookingId));
   const attendeeDelete = db
@@ -273,6 +291,7 @@ export const updateBooking = async (
     guestNames: params.guestNames,
     description: params.description,
     location: params.location,
+    fixedLocation: params.fixedLocation,
   });
   await announceBooking(env, {
     bookingId: params.bookingId,

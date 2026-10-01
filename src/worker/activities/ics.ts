@@ -37,7 +37,14 @@ export const buildBookingIcs = (params: {
   to: string;
   description: string;
   location: string;
+  /** A place picked from the activity's fixed locations; its maps link rides
+   * along in LOCATION, which most calendar apps linkify. */
+  fixedLocation: { name: string; mapsUrl: string } | null;
 }) => {
+  const locationText = params.fixedLocation
+    ? `${params.fixedLocation.name}, ${params.fixedLocation.mapsUrl}`
+    : params.location;
+
   const lines = [
     "BEGIN:VCALENDAR",
     "VERSION:2.0",
@@ -51,7 +58,7 @@ export const buildBookingIcs = (params: {
   ];
 
   if (params.description) lines.push(`DESCRIPTION:${escapeIcsText(params.description)}`);
-  if (params.location) lines.push(`LOCATION:${escapeIcsText(params.location)}`);
+  if (locationText) lines.push(`LOCATION:${escapeIcsText(locationText)}`);
 
   lines.push("END:VEVENT", "END:VCALENDAR");
 

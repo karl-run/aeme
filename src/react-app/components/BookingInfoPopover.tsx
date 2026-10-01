@@ -75,21 +75,34 @@ export const BookingInfoPopover = ({
                 )}
               </div>
               {booking.description && <p className="text-xs">{booking.description}</p>}
-              {booking.location && (
+              {booking.fixedLocation ? (
                 <p className="text-xs">
-                  {isUrl(booking.location) ? (
-                    <a
-                      href={booking.location}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-muted-foreground underline"
-                    >
-                      {booking.location}
-                    </a>
-                  ) : (
-                    <span className="text-muted-foreground">{booking.location}</span>
-                  )}
+                  <a
+                    href={booking.fixedLocation.mapsUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-muted-foreground underline"
+                  >
+                    {booking.fixedLocation.name}
+                  </a>
                 </p>
+              ) : (
+                booking.location && (
+                  <p className="text-xs">
+                    {isUrl(booking.location) ? (
+                      <a
+                        href={booking.location}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-muted-foreground underline"
+                      >
+                        {booking.location}
+                      </a>
+                    ) : (
+                      <span className="text-muted-foreground">{booking.location}</span>
+                    )}
+                  </p>
+                )
               )}
               <p className="text-xs text-muted-foreground">Booked by {booking.createdByName}</p>
               <p className="text-xs text-muted-foreground">
