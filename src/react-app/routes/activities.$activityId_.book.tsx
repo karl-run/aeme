@@ -49,7 +49,7 @@ const BookActivity = () => {
         <p className="text-sm text-muted-foreground">
           {activity ? "That booking no longer exists." : "That activity doesn't exist here."}
         </p>
-        <Button render={<Link to="/" />} variant="outline" size="sm">
+        <Button render={<Link to="/" />} nativeButton={false} variant="outline" size="sm">
           Back to dashboard
         </Button>
       </PageContainer>

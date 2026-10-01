@@ -56,7 +56,7 @@ const ActivityDetail = () => {
     return (
       <PageContainer className="flex flex-col items-start gap-3 p-2 md:px-6">
         <p className="text-sm text-muted-foreground">That activity doesn't exist here.</p>
-        <Button render={<Link to="/" />} variant="outline" size="sm">
+        <Button render={<Link to="/" />} nativeButton={false} variant="outline" size="sm">
           Back to dashboard
         </Button>
       </PageContainer>
@@ -152,6 +152,7 @@ const ActivityDetail = () => {
                 search={{ from: "activity" }}
               />
             }
+            nativeButton={false}
             size="sm"
           >
             <PlusIcon className="size-4" />

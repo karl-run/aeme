@@ -67,6 +67,7 @@ export const BookingInfoPopover = ({
                         search={{ bookingId: booking.id, from }}
                       />
                     }
+                    nativeButton={false}
                     variant="outline"
                     size="xs"
                   >

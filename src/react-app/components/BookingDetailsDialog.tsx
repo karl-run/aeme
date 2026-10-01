@@ -103,6 +103,7 @@ export const BookingDetailsDialog = ({
             type="button"
             variant="outline"
             render={<a href={`/api/bookings/${booking.id}/ics`} />}
+            nativeButton={false}
           >
             Add to calendar
           </Button>
@@ -116,6 +117,7 @@ export const BookingDetailsDialog = ({
                   search={{ bookingId: booking.id, from }}
                 />
               }
+              nativeButton={false}
             >
               Edit
             </Button>

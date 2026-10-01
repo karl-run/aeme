@@ -162,6 +162,7 @@ export const ActivityCard = ({ activity }: Props) => {
           <div className="flex shrink-0 gap-2">
             <Button
               render={<Link to="/activities/$activityId" params={{ activityId: activity.id }} />}
+              nativeButton={false}
               variant="outline"
               size="sm"
             >
@@ -181,6 +182,7 @@ export const ActivityCard = ({ activity }: Props) => {
                   search={{ from: "home" }}
                 />
               }
+              nativeButton={false}
               size="sm"
             >
               Book
