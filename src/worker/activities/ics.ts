@@ -32,6 +32,10 @@ export const buildBookingIcs = (params: {
   bookingId: string;
   created: string;
   activityTitle: string;
+  /** The activity's standing blurb, which applies to every booking of it — as
+   * opposed to `description`, this occurrence's own note. Both go into
+   * DESCRIPTION, since a calendar event has only the one field. */
+  activityDescription: string;
   date: string;
   from: string;
   to: string;
@@ -40,10 +44,34 @@ export const buildBookingIcs = (params: {
   /** A place picked from the activity's fixed locations; its maps link rides
    * along in LOCATION, which most calendar apps linkify. */
   fixedLocation: { name: string; mapsUrl: string } | null;
+  createdByName: string;
+  /** Members and guests alike, already resolved to display names. They go in
+   * the description rather than as ATTENDEE properties: that field takes a
+   * CAL-ADDRESS, and æme knows people by Slack id and name, never by email —
+   * inventing mailto: addresses would be worse than plain text. */
+  attendeeNames: string[];
+  /** Advisory headcount, rendered as "3/4" when set. */
+  idealMemberCount: number | null;
 }) => {
   const locationText = params.fixedLocation
     ? `${params.fixedLocation.name}, ${params.fixedLocation.mapsUrl}`
     : params.location;
+
+  const count = params.idealMemberCount
+    ? `${params.attendeeNames.length}/${params.idealMemberCount}`
+    : `${params.attendeeNames.length}`;
+  const joining =
+    params.attendeeNames.length > 0
+      ? `Joining (${count}): ${params.attendeeNames.join(", ")}`
+      : "No one else joining yet.";
+
+  const description = [
+    params.activityDescription,
+    params.description,
+    [joining, `Booked by ${params.createdByName}`].join("\n"),
+  ]
+    .filter((part) => part !== "")
+    .join("\n\n");
 
   const lines = [
     "BEGIN:VCALENDAR",
@@ -57,7 +85,7 @@ export const buildBookingIcs = (params: {
     `SUMMARY:${escapeIcsText(params.activityTitle)}`,
   ];
 
-  if (params.description) lines.push(`DESCRIPTION:${escapeIcsText(params.description)}`);
+  if (description) lines.push(`DESCRIPTION:${escapeIcsText(description)}`);
   if (locationText) lines.push(`LOCATION:${escapeIcsText(locationText)}`);
 
   lines.push("END:VEVENT", "END:VCALENDAR");

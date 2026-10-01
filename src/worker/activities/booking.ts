@@ -1,8 +1,8 @@
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 
 import { BASE_URL } from "../constants.ts";
 import { createDb } from "../db/db.ts";
-import { activityBookingAttendeesTable, activityBookingsTable } from "../db/schema.ts";
+import { activityBookingAttendeesTable, activityBookingsTable, usersTable } from "../db/schema.ts";
 import { postOrUpdateMessage } from "../slack/messages.ts";
 
 /** Builds the Slack `text` fallback + Block Kit `blocks` for a booking
@@ -149,6 +149,24 @@ export const getBookingById = async (env: Env, id: string) => {
     .where(eq(activityBookingsTable.id, id));
 
   return booking ?? null;
+};
+
+/** Display names of a booking's attendees — channel members resolved through
+ * `users`, guests carrying their own name on the attendee row. Mirrors the
+ * shaping `listActivitiesForChannel` does, for callers that have a booking id
+ * and nothing else (the session-less ICS route). */
+export const listBookingAttendeeNames = async (env: Env, bookingId: string): Promise<string[]> => {
+  const db = createDb(env);
+
+  const rows = await db
+    .select({
+      name: sql<string>`coalesce(${usersTable.name}, ${activityBookingAttendeesTable.name})`,
+    })
+    .from(activityBookingAttendeesTable)
+    .leftJoin(usersTable, eq(usersTable.userId, activityBookingAttendeesTable.userId))
+    .where(eq(activityBookingAttendeesTable.bookingId, bookingId));
+
+  return rows.map((row) => row.name);
 };
 
 export const createBooking = async (

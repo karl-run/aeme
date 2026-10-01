@@ -10,7 +10,12 @@ import {
   updateActivity,
 } from "../activities/activity.ts";
 import { upsertAvailability } from "../activities/availability.ts";
-import { createBooking, getBookingById, updateBooking } from "../activities/booking.ts";
+import {
+  createBooking,
+  getBookingById,
+  listBookingAttendeeNames,
+  updateBooking,
+} from "../activities/booking.ts";
 import { buildBookingIcs } from "../activities/ics.ts";
 import {
   archiveActivityLocation,
@@ -27,6 +32,7 @@ import {
 } from "../auth/session.ts";
 import { addChannelMember, listChannelMembers, listChannelsForUser } from "../channels/channel.ts";
 import { getChannelInfo, getChannelMembers } from "../slack/channels.ts";
+import { getUserName } from "../users/user.ts";
 
 const switchChannelSchema = z.object({
   channelId: z.string().min(1),
@@ -517,14 +523,17 @@ export const apiRouter = new Hono<{ Bindings: Env }>()
     const activity = await getActivityById(c.env, booking.activityId);
     if (!activity) return c.notFound();
 
-    const bookingLocation = booking.locationId
-      ? await getActivityLocationById(c.env, booking.locationId)
-      : null;
+    const [bookingLocation, attendeeNames, createdByName] = await Promise.all([
+      booking.locationId ? getActivityLocationById(c.env, booking.locationId) : null,
+      listBookingAttendeeNames(c.env, booking.id),
+      getUserName(c.env, booking.createdBy),
+    ]);
 
     const ics = buildBookingIcs({
       bookingId: booking.id,
       created: booking.created,
       activityTitle: activity.title,
+      activityDescription: activity.description,
       date: booking.date,
       from: booking.from,
       to: booking.to,
@@ -533,6 +542,9 @@ export const apiRouter = new Hono<{ Bindings: Env }>()
       fixedLocation: bookingLocation
         ? { name: bookingLocation.name, mapsUrl: bookingLocation.mapsUrl }
         : null,
+      createdByName: createdByName ?? "someone",
+      attendeeNames,
+      idealMemberCount: activity.idealMemberCount,
     });
 
     return c.body(ics, 200, {
