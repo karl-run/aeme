@@ -77,3 +77,22 @@ export const useUpdateBookingMutation = () => {
     },
   });
 };
+
+/** Removes a booking and the Slack post announcing it. Owner-only, enforced
+ * server-side. */
+export const useDeleteBookingMutation = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (params: { activityId: string; bookingId: string }) => {
+      const res = await client.activities[":id"].bookings[":bookingId"].$delete({
+        param: { id: params.activityId, bookingId: params.bookingId },
+      });
+      if (!res.ok) throw new Error("Failed to delete booking.");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: activitiesQueryKey });
+    },
+  });
+};

@@ -3,7 +3,7 @@ import { eq, sql } from "drizzle-orm";
 import { BASE_URL } from "../constants.ts";
 import { createDb } from "../db/db.ts";
 import { activityBookingAttendeesTable, activityBookingsTable, usersTable } from "../db/schema.ts";
-import { postOrUpdateMessage } from "../slack/messages.ts";
+import { deleteMessage, postOrUpdateMessage } from "../slack/messages.ts";
 
 /** Builds the Slack `text` fallback + Block Kit `blocks` for a booking
  * announcement. Channel members are tagged via Slack's `<@userId>` mention
@@ -319,4 +319,29 @@ export const updateBooking = async (
     text,
     blocks,
   });
+};
+
+/** Removes a booking, its attendees, and the Slack post announcing it. Only
+ * the booking's creator may call this (enforced by the router).
+ *
+ * The rows go first and the Slack delete is best-effort afterwards, matching
+ * how every other Slack call here behaves: an outage leaves a stale post
+ * rather than a booking the UI claims is gone. The post is a notification,
+ * the row is the record. */
+export const deleteBooking = async (
+  env: Env,
+  params: { bookingId: string; channelId: string; slackMessageTs: string | null },
+) => {
+  const db = createDb(env);
+
+  await db.batch([
+    db
+      .delete(activityBookingAttendeesTable)
+      .where(eq(activityBookingAttendeesTable.bookingId, params.bookingId)),
+    db.delete(activityBookingsTable).where(eq(activityBookingsTable.id, params.bookingId)),
+  ]);
+
+  if (params.slackMessageTs) {
+    await deleteMessage(env, { channel: params.channelId, ts: params.slackMessageTs });
+  }
 };

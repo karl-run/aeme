@@ -12,6 +12,7 @@ import {
 import { upsertAvailability } from "../activities/availability.ts";
 import {
   createBooking,
+  deleteBooking,
   getBookingById,
   listBookingAttendeeNames,
   updateBooking,
@@ -461,6 +462,35 @@ export const apiRouter = new Hono<{ Bindings: Env }>()
       return c.json({ success: true });
     },
   )
+  .delete("/activities/:id/bookings/:bookingId", async (c) => {
+    const sessionId = getCookie(c, SESSION_COOKIE_NAME);
+    const session = sessionId ? await getSessionMeta(c.env, sessionId) : null;
+    if (!session) return c.json({ error: "Unauthorized" }, 401);
+
+    const activityId = c.req.param("id");
+    const bookingId = c.req.param("bookingId");
+
+    const activity = await getActivityById(c.env, activityId);
+    if (!activity || activity.channelId !== session.channelId) {
+      return c.json({ error: "Not found" }, 404);
+    }
+
+    const booking = await getBookingById(c.env, bookingId);
+    if (!booking || booking.activityId !== activityId) {
+      return c.json({ error: "Not found" }, 404);
+    }
+    if (booking.createdBy !== session.userId) {
+      return c.json({ error: "Only the booking's creator can delete it." }, 403);
+    }
+
+    await deleteBooking(c.env, {
+      bookingId,
+      channelId: activity.channelId,
+      slackMessageTs: booking.slackMessageTs,
+    });
+
+    return c.json({ success: true });
+  })
   .post("/activities/:id/locations", zValidator("json", createLocationSchema), async (c) => {
     const sessionId = getCookie(c, SESSION_COOKIE_NAME);
     const session = sessionId ? await getSessionMeta(c.env, sessionId) : null;

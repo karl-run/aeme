@@ -144,3 +144,36 @@ export async function postOrUpdateMessage(
 
   return posted?.ts ?? null;
 }
+
+type DeleteMessageResponse = {
+  ok: boolean;
+  error?: string;
+};
+
+/** Removes a previously-posted message. Returns false (and logs) on failure
+ * rather than throwing — like the other helpers here, a Slack problem
+ * shouldn't fail the action the user actually asked for. A
+ * `message_not_found` counts as success: the post is already gone, which is
+ * the state the caller wanted. */
+export const deleteMessage = async (
+  env: Env,
+  params: { channel: string; ts: string },
+): Promise<boolean> => {
+  const response = await fetch("https://slack.com/api/chat.delete", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${env.SLACK_BOT_TOKEN}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(params),
+  });
+
+  const body = (await response.json()) as DeleteMessageResponse;
+
+  if (!body.ok && body.error !== "message_not_found") {
+    console.error(`chat.delete failed: ${body.error}`);
+    return false;
+  }
+
+  return true;
+};

@@ -2,6 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { ArrowLeftIcon } from "lucide-react";
 
 import { BookingForm } from "../components/BookingForm.tsx";
+import { DeleteBookingDialog } from "../components/DeleteBookingDialog.tsx";
 import { PageContainer } from "../components/PageContainer.tsx";
 import { Button } from "../components/ui/button.tsx";
 import { useActivitiesQuery } from "../queries/activities.ts";
@@ -100,6 +101,24 @@ const BookActivity = () => {
           onCancel={goBack}
         />
       </div>
+
+      {booking && (
+        <div className="flex w-full flex-col gap-2 border-t border-border pt-5">
+          <p className="text-sm text-muted-foreground">
+            Booked this by mistake? Deleting removes it from æme and takes the Slack post with it.
+          </p>
+          <div>
+            <DeleteBookingDialog
+              activityId={activity.id}
+              bookingId={booking.id}
+              date={booking.date}
+              from={booking.from}
+              to={booking.to}
+              onDeleted={goBack}
+            />
+          </div>
+        </div>
+      )}
     </PageContainer>
   );
 };
