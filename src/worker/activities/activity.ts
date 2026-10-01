@@ -1,6 +1,6 @@
 import { and, eq, inArray, sql } from "drizzle-orm";
 
-import { BASE_URL } from "../constants.ts";
+import { BASE_URL, DISPLAY_TIME_ZONE } from "../constants.ts";
 import { createDb } from "../db/db.ts";
 import {
   activitiesTable,
@@ -44,6 +44,7 @@ const buildActivitySuggestionMessage = (params: {
     day: "numeric",
     hour: "numeric",
     minute: "2-digit",
+    timeZone: DISPLAY_TIME_ZONE,
   });
 
   const text = `📋 New suggestion: ${params.title}`;

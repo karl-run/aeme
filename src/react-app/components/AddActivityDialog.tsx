@@ -90,7 +90,8 @@ export const AddActivityDialog = () => {
       {
         title,
         description,
-        endTime: persistent ? null : endTime || null,
+        // `endTime` is the creator's wall clock; the API stores instants.
+        endTime: persistent || endTime === "" ? null : new Date(endTime).toISOString(),
         persistent,
         slotGranularity,
         suggestedDates: !persistent && suggestedDates.length > 0 ? suggestedDates : null,

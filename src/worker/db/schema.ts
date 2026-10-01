@@ -12,16 +12,20 @@ export const channelsTable = sqliteTable("channels", {
   name: text().notNull(),
   owner: text("owner")
     .notNull()
-    .references(() => usersTable.userId),
+    .references(() => usersTable.userId, { onDelete: "restrict" }),
   created: text().notNull(),
 });
 
 export const otpLoginsTable = sqliteTable(
   "otp_logins",
   {
-    otpHash: text("otp_hash").notNull().unique(),
-    userId: text("user_id").notNull(),
-    channelId: text("channel_id").notNull(),
+    otpHash: text("otp_hash").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => usersTable.userId, { onDelete: "cascade" }),
+    channelId: text("channel_id")
+      .notNull()
+      .references(() => channelsTable.channelId, { onDelete: "cascade" }),
     created: text().notNull(),
     expires: text().notNull(),
   },
@@ -35,8 +39,12 @@ export const otpLoginsTable = sqliteTable(
 
 export const sessionsTable = sqliteTable("sessions", {
   id: text().primaryKey(),
-  userId: text("user_id").notNull(),
-  channelId: text("channel_id").notNull(),
+  userId: text("user_id")
+    .notNull()
+    .references(() => usersTable.userId, { onDelete: "cascade" }),
+  channelId: text("channel_id")
+    .notNull()
+    .references(() => channelsTable.channelId, { onDelete: "cascade" }),
   created: text().notNull(),
   expires: text().notNull(),
 });
@@ -53,10 +61,10 @@ export const channelMembersTable = sqliteTable(
     id: text().primaryKey(),
     channelId: text("channel_id")
       .notNull()
-      .references(() => channelsTable.channelId),
+      .references(() => channelsTable.channelId, { onDelete: "cascade" }),
     userId: text("user_id")
       .notNull()
-      .references(() => usersTable.userId),
+      .references(() => usersTable.userId, { onDelete: "cascade" }),
     joined: text().notNull(),
   },
   (t) => [uniqueIndex("channel_members_channel_user").on(t.channelId, t.userId)],
@@ -74,12 +82,17 @@ export const activitiesTable = sqliteTable(
     id: text().primaryKey(),
     channelId: text("channel_id")
       .notNull()
-      .references(() => channelsTable.channelId),
-    /** Nullable since activities created before this field existed have no
-     * recorded creator — only the creator may edit an activity. */
-    createdBy: text("created_by").references(() => usersTable.userId),
+      .references(() => channelsTable.channelId, { onDelete: "cascade" }),
+    /** Only the creator may edit an activity, so this must always be set —
+     * a null would leave the activity editable by nobody. */
+    createdBy: text("created_by")
+      .notNull()
+      .references(() => usersTable.userId, { onDelete: "restrict" }),
     title: text().notNull(),
     description: text().notNull(),
+    /** Respond-by deadline, as a UTC instant (`…Z`). Stored as an instant
+     * rather than the creator's wall clock so the server and client can
+     * compare it to `new Date()` and agree — see the format check below. */
     endTime: text("end_time"),
     persistent: integer({ mode: "boolean" }).notNull().default(false),
     slotGranularity: text("slot_granularity", { enum: ["day", "hourly"] })
@@ -101,6 +114,17 @@ export const activitiesTable = sqliteTable(
   },
   (t) => [
     check("activities_persistent_no_end_time", sql`${t.persistent} = 0 OR ${t.endTime} IS NULL`),
+    // The other half of the same rule. Its absence was load-bearing: the
+    // Slack announcement asserts `endTime!` for a one-off.
+    check("activities_oneoff_has_end_time", sql`${t.persistent} = 1 OR ${t.endTime} IS NOT NULL`),
+    check(
+      "activities_end_time_utc",
+      sql`${t.endTime} IS NULL OR ${t.endTime} GLOB '[0-9][0-9][0-9][0-9]-[0-1][0-9]-[0-3][0-9]T[0-2][0-9]:[0-5][0-9]:[0-5][0-9].[0-9][0-9][0-9]Z'`,
+    ),
+    check(
+      "activities_suggested_dates_json",
+      sql`${t.suggestedDates} IS NULL OR (json_valid(${t.suggestedDates}) AND json_array_length(${t.suggestedDates}) > 0)`,
+    ),
     check("activities_slot_granularity_valid", sql`${t.slotGranularity} IN ('day', 'hourly')`),
     check(
       "activities_persistent_no_suggested_dates",
@@ -119,10 +143,10 @@ export const activityAvailabilityTable = sqliteTable(
     id: text().primaryKey(),
     activityId: text("activity_id")
       .notNull()
-      .references(() => activitiesTable.id),
+      .references(() => activitiesTable.id, { onDelete: "cascade" }),
     userId: text("user_id")
       .notNull()
-      .references(() => usersTable.userId),
+      .references(() => usersTable.userId, { onDelete: "cascade" }),
     slots: text({ mode: "json" }).notNull().$type<ActivitySlot[]>(),
     /** Explicitly "I can't make it", as opposed to just not having answered
      * yet — mutually exclusive with having any slots selected. Only
@@ -138,6 +162,10 @@ export const activityAvailabilityTable = sqliteTable(
   },
   (t) => [
     uniqueIndex("activity_availability_activity_user").on(t.activityId, t.userId),
+    check(
+      "activity_availability_slots_json",
+      sql`json_valid(${t.slots}) AND json_type(${t.slots}) = 'array'`,
+    ),
     check(
       "activity_availability_declined_no_slots",
       sql`${t.declined} = 0 OR json_array_length(${t.slots}) = 0`,
@@ -156,23 +184,23 @@ export const activityBookingsTable = sqliteTable(
     id: text().primaryKey(),
     activityId: text("activity_id")
       .notNull()
-      .references(() => activitiesTable.id),
+      .references(() => activitiesTable.id, { onDelete: "cascade" }),
     createdBy: text("created_by")
       .notNull()
-      .references(() => usersTable.userId),
+      .references(() => usersTable.userId, { onDelete: "restrict" }),
     date: text().notNull(),
     from: text().notNull(),
     to: text().notNull(),
     description: text().notNull().default(""),
     /** Free-text place, used only when no `locationId` is set — the two are
-     * mutually exclusive, enforced by the router's zod schema rather than a
-     * check constraint, since adding one to this existing table would mean a
-     * full SQLite table rebuild. */
+     * mutually exclusive, enforced by `activity_bookings_location_xor`. */
     location: text().notNull().default(""),
     /** One of the activity's fixed locations, when the booker picked one
      * instead of typing a place. Always null for a non-persistent activity,
      * which has no fixed locations to pick. */
-    locationId: text("location_id").references(() => activityLocationsTable.id),
+    locationId: text("location_id").references(() => activityLocationsTable.id, {
+      onDelete: "set null",
+    }),
     /** Slack message timestamp of the announcement post for this booking, so
      * it can be edited in place (via `chat.update`) instead of re-posted as
      * the booking's data changes. Null until the post succeeds. */
@@ -180,6 +208,12 @@ export const activityBookingsTable = sqliteTable(
     created: text().notNull(),
   },
   (t) => [
+    check(
+      "activity_bookings_date_format",
+      sql`${t.date} GLOB '[0-9][0-9][0-9][0-9]-[0-1][0-9]-[0-3][0-9]'`,
+    ),
+    // A booking carries a fixed location or free text, never both.
+    check("activity_bookings_location_xor", sql`${t.locationId} IS NULL OR ${t.location} = ''`),
     check(
       "activity_bookings_time_format",
       sql`${t.from} GLOB '[0-2][0-9]:[0-5][0-9]' AND ${t.to} GLOB '[0-2][0-9]:[0-5][0-9]'`,
@@ -202,7 +236,7 @@ export const activityLocationsTable = sqliteTable(
     id: text().primaryKey(),
     activityId: text("activity_id")
       .notNull()
-      .references(() => activitiesTable.id),
+      .references(() => activitiesTable.id, { onDelete: "cascade" }),
     name: text().notNull(),
     mapsUrl: text("maps_url").notNull(),
     archived: integer({ mode: "boolean" }).notNull().default(false),
@@ -215,6 +249,7 @@ export const activityLocationsTable = sqliteTable(
       .on(t.activityId, t.name)
       .where(sql`${t.archived} = 0`),
     check("activity_locations_name_not_empty", sql`length(trim(${t.name})) > 0`),
+    check("activity_locations_maps_url_not_empty", sql`length(trim(${t.mapsUrl})) > 0`),
   ],
 );
 
@@ -228,15 +263,15 @@ export const activityBookingAttendeesTable = sqliteTable(
     id: text().primaryKey(),
     bookingId: text("booking_id")
       .notNull()
-      .references(() => activityBookingsTable.id),
-    userId: text("user_id").references(() => usersTable.userId),
+      .references(() => activityBookingsTable.id, { onDelete: "cascade" }),
+    userId: text("user_id").references(() => usersTable.userId, { onDelete: "cascade" }),
     name: text(),
   },
   (t) => [
     uniqueIndex("activity_booking_attendees_booking_user").on(t.bookingId, t.userId),
     check(
       "activity_booking_attendees_user_or_name",
-      sql`(${t.userId} IS NOT NULL AND ${t.name} IS NULL) OR (${t.userId} IS NULL AND ${t.name} IS NOT NULL)`,
+      sql`(${t.userId} IS NOT NULL AND ${t.name} IS NULL) OR (${t.userId} IS NULL AND length(trim(${t.name})) > 0)`,
     ),
   ],
 );

@@ -50,7 +50,9 @@ const createActivitySchema = z
   .object({
     title: z.string().trim().min(1),
     description: z.string().trim(),
-    endTime: z.iso.datetime({ local: true }).nullable(),
+    /** A UTC instant. The client converts the creator's wall-clock pick
+     * before sending, so this can be compared to `new Date()` directly. */
+    endTime: z.iso.datetime().nullable(),
     persistent: z.boolean(),
     slotGranularity: z.enum(["day", "hourly"]),
     suggestedDates: z.array(z.iso.date()).min(1).nullable(),

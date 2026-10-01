@@ -31,7 +31,10 @@ export type EditableBooking = {
   to: string;
   description: string;
   location: string;
-  locationId: string | null;
+  /** The booking's fixed location, carried in full rather than by id: it may
+   * since have been archived, in which case the activity no longer lists it
+   * and the form would otherwise show no location control at all. */
+  fixedLocation: { id: string; name: string; mapsUrl: string } | null;
   attendeeUserIds: string[];
   guestNames: string[];
 };
@@ -60,7 +63,7 @@ export const BookingForm = ({ activity, booking, initialDate, onDone, onCancel }
   const [location, setLocation] = useState(booking?.location ?? "");
   // A booking carries either a fixed location or free text, never both — the
   // server refuses the combination, so the form can't offer it.
-  const [locationId, setLocationId] = useState<string | null>(booking?.locationId ?? null);
+  const [locationId, setLocationId] = useState<string | null>(booking?.fixedLocation?.id ?? null);
   const [attendeeUserIds, setAttendeeUserIds] = useState<string[]>(booking?.attendeeUserIds ?? []);
   const [guestNames, setGuestNames] = useState<string[]>(booking?.guestNames ?? []);
   const [guestNameInput, setGuestNameInput] = useState("");
@@ -100,6 +103,15 @@ export const BookingForm = ({ activity, booking, initialDate, onDone, onCancel }
     offersOnDate(activity.responses, bookingDate).map((offer) => [offer.userId, offer.ranges]),
   );
   const hourly = activity.slotGranularity === "hourly";
+
+  // A retired place stays offered while the booking that used it is open, so
+  // it can be kept or swapped — it just isn't on offer for anything new.
+  const retiredLocation =
+    booking?.fixedLocation &&
+    !activity.locations.some((fixed) => fixed.id === booking.fixedLocation?.id)
+      ? booking.fixedLocation
+      : null;
+  const locations = retiredLocation ? [...activity.locations, retiredLocation] : activity.locations;
 
   // A one-off is booked against the days it asked about, so lead with those
   // rather than an open calendar. A persistent activity has no such set.
@@ -267,9 +279,9 @@ export const BookingForm = ({ activity, booking, initialDate, onDone, onCancel }
       <div className="flex flex-col gap-2">
         <Label htmlFor="booking-location">Location</Label>
 
-        {activity.locations.length > 0 && (
+        {locations.length > 0 && (
           <div className="flex flex-wrap items-center gap-2">
-            {activity.locations.map((fixed) => {
+            {locations.map((fixed) => {
               const selected = fixed.id === locationId;
               return (
                 <span
@@ -318,7 +330,7 @@ export const BookingForm = ({ activity, booking, initialDate, onDone, onCancel }
             value={location}
             onChange={(e) => setLocation(e.target.value)}
             placeholder={
-              activity.locations.length > 0
+              locations.length > 0
                 ? "Or somewhere else — address or Google Maps link"
                 : "Address or Google Maps link"
             }
