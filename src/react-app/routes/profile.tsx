@@ -1,18 +1,15 @@
 import { createFileRoute } from "@tanstack/react-router";
 
+import { PageContainer } from "../components/PageContainer.tsx";
 import { Button } from "../components/ui/button.tsx";
 import { useChannelQuery } from "../queries/channel.ts";
 import { useAddChannelMemberMutation, useChannelMembersQuery } from "../queries/channelMembers.ts";
 import { useSessionQuery } from "../queries/session.ts";
 
-export const Route = createFileRoute("/profile")({
-  component: Profile,
-});
-
 const formatCreated = (iso: string) =>
   new Date(iso).toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" });
 
-function Profile() {
+const Profile = () => {
   const { data } = useSessionQuery();
   const session = data?.session;
 
@@ -23,11 +20,11 @@ function Profile() {
   const localMemberIds = new Set((localMembers ?? []).map((member) => member.userId));
 
   return (
-    <div className="flex w-full max-w-md flex-col gap-3 p-2 md:px-6">
+    <PageContainer className="flex flex-col items-start gap-4 p-2 md:px-6">
       <h1 className="text-2xl font-semibold">Profile</h1>
 
       {session && (
-        <dl className="flex flex-col gap-2 text-sm">
+        <dl className="flex w-full max-w-2xl flex-col gap-2 text-sm">
           <div className="flex items-center justify-between border-t border-border py-2">
             <dt className="text-muted-foreground">Name</dt>
             <dd>{session.userName}</dd>
@@ -65,7 +62,7 @@ function Profile() {
       )}
 
       {channel && channel.members.length > 0 && (
-        <div className="flex flex-col gap-2">
+        <div className="flex w-full max-w-2xl flex-col gap-2">
           <h2 className="text-sm font-medium text-muted-foreground">
             Members ({channel.members.length})
           </h2>
@@ -100,6 +97,10 @@ function Profile() {
           </ul>
         </div>
       )}
-    </div>
+    </PageContainer>
   );
-}
+};
+
+export const Route = createFileRoute("/profile")({
+  component: Profile,
+});

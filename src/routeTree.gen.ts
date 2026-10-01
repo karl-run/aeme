@@ -10,7 +10,6 @@
 
 import { Route as rootRouteImport } from './react-app/routes/__root'
 import { Route as IndexRouteImport } from './react-app/routes/index'
-import { Route as AboutRouteImport } from './react-app/routes/about'
 import { Route as LoginRouteImport } from './react-app/routes/login'
 import { Route as ProfileRouteImport } from './react-app/routes/profile'
 import { Route as ActivitiesActivityIdRouteImport } from './react-app/routes/activities.$activityId'
@@ -19,11 +18,6 @@ import { Route as ActivitiesActivityIdBookRouteImport } from './react-app/routes
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AboutRoute = AboutRouteImport.update({
-  id: '/about',
-  path: '/about',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LoginRoute = LoginRouteImport.update({
@@ -50,7 +44,6 @@ const ActivitiesActivityIdBookRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/about': typeof AboutRoute
   '/login': typeof LoginRoute
   '/profile': typeof ProfileRoute
   '/activities/$activityId': typeof ActivitiesActivityIdRoute
@@ -58,7 +51,6 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/about': typeof AboutRoute
   '/login': typeof LoginRoute
   '/profile': typeof ProfileRoute
   '/activities/$activityId': typeof ActivitiesActivityIdRoute
@@ -67,7 +59,6 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/about': typeof AboutRoute
   '/login': typeof LoginRoute
   '/profile': typeof ProfileRoute
   '/activities/$activityId': typeof ActivitiesActivityIdRoute
@@ -77,7 +68,6 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
-    | '/about'
     | '/login'
     | '/profile'
     | '/activities/$activityId'
@@ -85,7 +75,6 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
-    | '/about'
     | '/login'
     | '/profile'
     | '/activities/$activityId'
@@ -93,7 +82,6 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
-    | '/about'
     | '/login'
     | '/profile'
     | '/activities/$activityId'
@@ -102,7 +90,6 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  AboutRoute: typeof AboutRoute
   LoginRoute: typeof LoginRoute
   ProfileRoute: typeof ProfileRoute
   ActivitiesActivityIdRoute: typeof ActivitiesActivityIdRoute
@@ -116,13 +103,6 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/about': {
-      id: '/about'
-      path: '/about'
-      fullPath: '/about'
-      preLoaderRoute: typeof AboutRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/login': {
@@ -158,7 +138,6 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  AboutRoute: AboutRoute,
   LoginRoute: LoginRoute,
   ProfileRoute: ProfileRoute,
   ActivitiesActivityIdRoute: ActivitiesActivityIdRoute,
