@@ -46,76 +46,80 @@ const BookActivity = () => {
 
   if (!activity || (bookingId !== undefined && !booking)) {
     return (
-      <PageContainer className="flex max-w-2xl flex-col items-start gap-3 p-2 md:px-6">
-        <p className="text-sm text-muted-foreground">
-          {activity ? "That booking no longer exists." : "That activity doesn't exist here."}
-        </p>
-        <Button render={<Link to="/" />} nativeButton={false} variant="outline" size="sm">
-          Back to dashboard
-        </Button>
+      <PageContainer className="p-2 md:px-6">
+        <div className="flex w-full max-w-prose flex-col items-start gap-3">
+          <p className="text-sm text-muted-foreground">
+            {activity ? "That booking no longer exists." : "That activity doesn't exist here."}
+          </p>
+          <Button render={<Link to="/" />} nativeButton={false} variant="outline" size="sm">
+            Back to dashboard
+          </Button>
+        </div>
       </PageContainer>
     );
   }
 
   return (
-    <PageContainer className="flex max-w-2xl flex-col items-start gap-4 p-2 pb-10 md:px-6">
-      <button
-        type="button"
-        onClick={goBack}
-        className="flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
-      >
-        <ArrowLeftIcon className="size-4" />
-        Back
-      </button>
-
-      <header className="flex w-full flex-col gap-1">
-        <h1 className="text-2xl font-semibold">{booking ? "Edit booking" : "New booking"}</h1>
-        <p className="text-sm text-muted-foreground">
-          {activity.title}
-          {(booking || date) && ` · ${formatDate(booking ? booking.date : date!)}`}
-        </p>
-      </header>
-
-      <Section>
-        <BookingForm
-          activity={activity}
-          booking={
-            booking && {
-              id: booking.id,
-              date: booking.date,
-              from: booking.from,
-              to: booking.to,
-              description: booking.description,
-              location: booking.location,
-              locationId: booking.fixedLocation?.id ?? null,
-              attendeeUserIds: booking.attendeeUserIds,
-              guestNames: booking.guestNames,
-            }
-          }
-          initialDate={date}
-          onDone={goBack}
-          onCancel={goBack}
-        />
-      </Section>
-
-      {booking && (
-        <Section
-          title="Delete booking"
-          description="Booked this by mistake? Deleting removes it from æme and takes the Slack post with it."
-          className="border-destructive/30 bg-destructive/5"
+    <PageContainer className="p-2 pb-10 md:px-6">
+      <div className="flex w-full max-w-prose flex-col items-start gap-4">
+        <button
+          type="button"
+          onClick={goBack}
+          className="flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
         >
-          <div>
-            <DeleteBookingDialog
-              activityId={activity.id}
-              bookingId={booking.id}
-              date={booking.date}
-              from={booking.from}
-              to={booking.to}
-              onDeleted={goBack}
-            />
-          </div>
+          <ArrowLeftIcon className="size-4" />
+          Back
+        </button>
+
+        <header className="flex w-full flex-col gap-1">
+          <h1 className="text-2xl font-semibold">{booking ? "Edit booking" : "New booking"}</h1>
+          <p className="text-sm text-muted-foreground">
+            {activity.title}
+            {(booking || date) && ` · ${formatDate(booking ? booking.date : date!)}`}
+          </p>
+        </header>
+
+        <Section>
+          <BookingForm
+            activity={activity}
+            booking={
+              booking && {
+                id: booking.id,
+                date: booking.date,
+                from: booking.from,
+                to: booking.to,
+                description: booking.description,
+                location: booking.location,
+                locationId: booking.fixedLocation?.id ?? null,
+                attendeeUserIds: booking.attendeeUserIds,
+                guestNames: booking.guestNames,
+              }
+            }
+            initialDate={date}
+            onDone={goBack}
+            onCancel={goBack}
+          />
         </Section>
-      )}
+
+        {booking && (
+          <Section
+            title="Delete booking"
+            description="Booked this by mistake? Deleting removes it from æme and takes the Slack post with it."
+            className="border-destructive/30 bg-destructive/5"
+          >
+            <div>
+              <DeleteBookingDialog
+                activityId={activity.id}
+                bookingId={booking.id}
+                date={booking.date}
+                from={booking.from}
+                to={booking.to}
+                onDeleted={goBack}
+              />
+            </div>
+          </Section>
+        )}
+      </div>
     </PageContainer>
   );
 };

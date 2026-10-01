@@ -59,7 +59,7 @@ export const Home = () => {
         <OngoingBoard activities={ongoing} />
       </section>
 
-      <section className="flex w-full max-w-2xl flex-col gap-3">
+      <section className="flex w-full max-w-prose flex-col gap-3">
         <h2 className="text-lg font-semibold">Requests</h2>
         {openRequests.length === 0 ? (
           <p className="text-sm text-muted-foreground">No open requests.</p>
@@ -69,7 +69,7 @@ export const Home = () => {
       </section>
 
       {lockedRequests.length > 0 && (
-        <section className="flex w-full max-w-2xl flex-col gap-3">
+        <section className="flex w-full max-w-prose flex-col gap-3">
           <div className="flex flex-col">
             <h2 className="text-lg font-semibold">Booked</h2>
             <p className="text-sm text-muted-foreground">
@@ -83,7 +83,7 @@ export const Home = () => {
       )}
 
       {pastRequests.length > 0 && (
-        <section className="w-full max-w-2xl">
+        <section className="w-full max-w-prose">
           <details className="text-sm text-muted-foreground">
             <summary className="cursor-pointer">Past requests ({pastRequests.length})</summary>
             <div className="mt-3 flex flex-col gap-3">
