@@ -2,7 +2,7 @@ import { Link } from "@tanstack/react-router";
 import { CheckIcon, PencilIcon } from "lucide-react";
 
 import { isRespondByPassed } from "../lib/activity-state.ts";
-import { splitByResponse } from "../lib/responders.ts";
+import { headcount, responderLabel, splitByResponse } from "../lib/responders.ts";
 import type { ActivityWithAvailability } from "../queries/activities.ts";
 import { useChannelMembersQuery } from "../queries/channelMembers.ts";
 import { useSessionQuery } from "../queries/session.ts";
@@ -56,6 +56,9 @@ export const ActivityCard = ({ activity }: Props) => {
   const isOwner = data?.session?.userId === activity.createdBy;
 
   const { available, declined } = splitByResponse(activity.responses, members.data ?? []);
+  // Guests count toward the target: the organiser is booking a table, not
+  // taking a membership roll.
+  const going = headcount(available);
 
   const closed = isRespondByPassed(activity);
 
@@ -144,19 +147,17 @@ export const ActivityCard = ({ activity }: Props) => {
         <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
           <div className="flex min-w-0 flex-col text-sm text-muted-foreground">
             <span>
-              {available.length > 0
+              {going > 0
                 ? activity.idealMemberCount
-                  ? `${available.length}/${activity.idealMemberCount} in`
-                  : `${available.length} in`
+                  ? `${going}/${activity.idealMemberCount} in`
+                  : `${going} in`
                 : "No one in yet"}
               {declined.length > 0 && ` · ${declined.length} can't make it`}
               {" · "}
               {summarize(activity)}
             </span>
             {available.length > 0 && (
-              <span className="truncate text-xs">
-                {nameSummary(available.map((responder) => responder.name))}
-              </span>
+              <span className="truncate text-xs">{nameSummary(available.map(responderLabel))}</span>
             )}
           </div>
           <div className="flex shrink-0 gap-2">

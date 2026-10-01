@@ -5,8 +5,8 @@ import { useEffect, useRef, useState } from "react";
 
 import type { ActivitySlot } from "../../worker/db/schema.ts";
 import { bookingOverlayPercent, bookingsForDay } from "../lib/booking-slots.ts";
-import type { Responder } from "../lib/responders.ts";
-import { slotKey } from "../lib/responders.ts";
+import type { RespondingUser } from "../lib/responders.ts";
+import { headcount, responderLabel, slotKey } from "../lib/responders.ts";
 import {
   bookedSlotOverlayClass,
   bookingOverlayClass,
@@ -49,8 +49,8 @@ const formatDayLabel = (d: Date) =>
 
 /** Native tooltip naming who picked a cell — the full picture lives in the
  * breakdown below the grid, this is just the hover answer. */
-const namesTitle = (responders: Responder[]) =>
-  responders.length > 0 ? responders.map((responder) => responder.name).join(", ") : undefined;
+const namesTitle = (responders: RespondingUser[]) =>
+  responders.length > 0 ? responders.map(responderLabel).join(", ") : undefined;
 
 type Props = {
   activityId: string;
@@ -63,7 +63,7 @@ type Props = {
   readOnly?: boolean;
   /** Other users who picked each slot, keyed by `slotKey` — the viewer's own
    * row is excluded by the caller, since their pick shows as the cell fill. */
-  responders?: Record<string, Responder[]>;
+  responders?: Record<string, RespondingUser[]>;
   /** Whether each slot has an actual booking, keyed the same way. */
   bookedSlots?: Record<string, boolean>;
   bookings?: ActivityWithAvailability["bookings"];
@@ -200,7 +200,7 @@ export const AvailabilityGrid = ({
             const dateStr = toDateStr(d);
             const selected = isDaySelected(dateStr);
             const dayResponders = responders[slotKey(dateStr)] ?? [];
-            const others = dayResponders.length;
+            const others = headcount(dayResponders);
             const booked = bookedSlots[dateStr] ?? false;
             return (
               <div key={dateStr} className="group relative hover:z-10">
@@ -314,7 +314,7 @@ export const AvailabilityGrid = ({
                 {HOURS.map((hour) => {
                   const selected = hourSetForDate(dateStr).has(hour);
                   const hourResponders = responders[slotKey(dateStr, hour)] ?? [];
-                  const others = hourResponders.length;
+                  const others = headcount(hourResponders);
                   return (
                     <div
                       key={hour}

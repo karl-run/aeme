@@ -82,6 +82,13 @@ export const BookingForm = ({ activity, booking, initialDate, onDone, onCancel }
           to === "" ? "24:00" : to,
         ).map((responder) => responder.userId),
   );
+  // Who said they're bringing someone. The guest is deliberately not
+  // pre-filled — whoever books types the actual name into the guest list —
+  // so this has to be visible enough that they remember to.
+  const plusOneIds = new Set(
+    activity.responses.filter((response) => response.plusOne).map((response) => response.userId),
+  );
+  const pickedPlusOnes = attendeeUserIds.filter((userId) => plusOneIds.has(userId)).length;
   const declinedIds = new Set(
     activity.responses.filter((response) => response.declined).map((response) => response.userId),
   );
@@ -343,6 +350,14 @@ export const BookingForm = ({ activity, booking, initialDate, onDone, onCancel }
                   onCheckedChange={(checked) => toggleAttendee(member.userId, checked === true)}
                 />
                 <Label htmlFor={`booking-attendee-${member.userId}`}>{member.name}</Label>
+                {plusOneIds.has(member.userId) && (
+                  <span
+                    className="rounded-full border border-border px-1.5 py-0.5 text-[10px] font-medium"
+                    title="Said they're bringing someone — add the guest's name below"
+                  >
+                    +1
+                  </span>
+                )}
                 {availableIds.has(member.userId) ? (
                   <span className="rounded-full bg-emerald-800 px-1.5 py-0.5 text-[10px] font-medium text-primary-foreground">
                     {hourly && (rangesByUserId.get(member.userId)?.length ?? 0) > 0
@@ -391,6 +406,13 @@ export const BookingForm = ({ activity, booking, initialDate, onDone, onCancel }
 
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="booking-guest-name">Add someone without Slack</Label>
+        {pickedPlusOnes > 0 && guestNames.length < pickedPlusOnes && (
+          <p className="text-xs text-muted-foreground">
+            {pickedPlusOnes === 1
+              ? "Someone you've picked is bringing a +1 — add their guest by name."
+              : `${pickedPlusOnes} people you've picked are bringing a +1 — add their guests by name.`}
+          </p>
+        )}
         <div className="flex gap-2">
           <Input
             id="booking-guest-name"

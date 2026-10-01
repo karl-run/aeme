@@ -12,6 +12,8 @@ import { ResponderBreakdown } from "../components/ResponderBreakdown.tsx";
 import { Section } from "../components/Section.tsx";
 import { Badge } from "../components/ui/badge.tsx";
 import { Button } from "../components/ui/button.tsx";
+import { Checkbox } from "../components/ui/checkbox.tsx";
+import { Label } from "../components/ui/label.tsx";
 import { isRespondByPassed } from "../lib/activity-state.ts";
 import { respondersBySlot } from "../lib/responders.ts";
 import { useActivitiesQuery } from "../queries/activities.ts";
@@ -47,6 +49,7 @@ const ActivityDetail = () => {
 
   const [slots, setSlots] = useState<ActivitySlot[]>([]);
   const [declined, setDeclined] = useState(false);
+  const [plusOne, setPlusOne] = useState(false);
   // The dates the grid currently shows, reported up so "all days" can mean
   // what's on screen. Stable identity + a content check, or the grid's effect
   // and this state would bounce off each other forever.
@@ -62,6 +65,7 @@ const ActivityDetail = () => {
     if (!activity || dirtyRef.current) return;
     setSlots(activity.slots);
     setDeclined(activity.declined);
+    setPlusOne(activity.plusOne);
   }, [activity]);
 
   useEffect(() => () => clearTimeout(saveTimerRef.current), []);
@@ -87,18 +91,28 @@ const ActivityDetail = () => {
 
   // Toggling is the save — no separate confirm step. Debounced so a run of
   // taps (or a drag across hours) sends one request rather than one each.
+  const save = (next: { slots: ActivitySlot[]; plusOne: boolean }) => {
+    clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(() => {
+      upsertAvailability.mutate(
+        { activityId: activity.id, slots: next.slots, declined: false, plusOne: next.plusOne },
+        { onSettled: () => (dirtyRef.current = false) },
+      );
+    }, SAVE_DEBOUNCE_MS);
+  };
+
   const handleChange = (next: ActivitySlot[]) => {
     dirtyRef.current = true;
     setSlots(next);
     setDeclined(false);
+    save({ slots: next, plusOne });
+  };
 
-    clearTimeout(saveTimerRef.current);
-    saveTimerRef.current = setTimeout(() => {
-      upsertAvailability.mutate(
-        { activityId: activity.id, slots: next, declined: false },
-        { onSettled: () => (dirtyRef.current = false) },
-      );
-    }, SAVE_DEBOUNCE_MS);
+  const handlePlusOne = (next: boolean) => {
+    dirtyRef.current = true;
+    setPlusOne(next);
+    setDeclined(false);
+    save({ slots, plusOne: next });
   };
 
   const handleDecline = () => {
@@ -109,8 +123,10 @@ const ActivityDetail = () => {
     dirtyRef.current = true;
     setSlots([]);
     setDeclined(true);
+    // A decline can't carry a guest — the DB has a check constraint saying so.
+    setPlusOne(false);
     upsertAvailability.mutate(
-      { activityId: activity.id, slots: [], declined: true },
+      { activityId: activity.id, slots: [], declined: true, plusOne: false },
       { onSettled: () => (dirtyRef.current = false) },
     );
   };
@@ -235,33 +251,48 @@ const ActivityDetail = () => {
           />
 
           {!closed && (
-            <div className="flex flex-wrap items-center gap-2 border-t border-border pt-4">
-              {/* Day granularity only: "all days" on an hourly activity would
+            <>
+              {/* One-off only: a +1 is a guest for a specific occasion, which
+                  a standing activity doesn't have. */}
+              {!activity.persistent && (
+                <div className="flex items-center gap-2 border-t border-border pt-4">
+                  <Checkbox
+                    id="plus-one"
+                    checked={plusOne}
+                    onCheckedChange={(checked) => handlePlusOne(checked === true)}
+                  />
+                  <Label htmlFor="plus-one">I'm bringing someone (+1)</Label>
+                </div>
+              )}
+
+              <div className="flex flex-wrap items-center gap-2 border-t border-border pt-4">
+                {/* Day granularity only: "all days" on an hourly activity would
                   mean every hour of every day, which is never what anyone
                   means. */}
-              {activity.slotGranularity === "day" && visibleDates.length > 0 && (
-                <Button type="button" variant="outline" onClick={handleToggleAllDays}>
-                  {allDaysPicked ? "Clear all days" : "I can do all days"}
-                </Button>
-              )}
-              {/* Persistent activities have nothing to decline — they just run. */}
-              {!activity.persistent && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="text-destructive"
-                  disabled={upsertAvailability.isPending}
-                  onClick={handleDecline}
-                >
-                  Can't make it
-                </Button>
-              )}
-              {upsertAvailability.isPending && (
-                <span className="text-xs text-muted-foreground" aria-live="polite">
-                  Saving…
-                </span>
-              )}
-            </div>
+                {activity.slotGranularity === "day" && visibleDates.length > 0 && (
+                  <Button type="button" variant="outline" onClick={handleToggleAllDays}>
+                    {allDaysPicked ? "Clear all days" : "I can do all days"}
+                  </Button>
+                )}
+                {/* Persistent activities have nothing to decline — they just run. */}
+                {!activity.persistent && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="text-destructive"
+                    disabled={upsertAvailability.isPending}
+                    onClick={handleDecline}
+                  >
+                    Can't make it
+                  </Button>
+                )}
+                {upsertAvailability.isPending && (
+                  <span className="text-xs text-muted-foreground" aria-live="polite">
+                    Saving…
+                  </span>
+                )}
+              </div>
+            </>
           )}
 
           {upsertAvailability.isError && (

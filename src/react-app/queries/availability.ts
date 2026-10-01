@@ -12,10 +12,11 @@ export const useUpsertAvailabilityMutation = () => {
       activityId: string;
       slots: ActivitySlot[];
       declined: boolean;
+      plusOne: boolean;
     }) => {
       const res = await client.activities[":id"].availability.$put({
         param: { id: params.activityId },
-        json: { slots: params.slots, declined: params.declined },
+        json: { slots: params.slots, declined: params.declined, plusOne: params.plusOne },
       });
       if (!res.ok) throw new Error("Failed to save availability.");
       return res.json();

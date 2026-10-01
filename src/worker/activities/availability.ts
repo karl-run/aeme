@@ -4,7 +4,13 @@ import { announceActivitySuggestion } from "./activity.ts";
 
 export const upsertAvailability = async (
   env: Env,
-  params: { activityId: string; userId: string; slots: ActivitySlot[]; declined: boolean },
+  params: {
+    activityId: string;
+    userId: string;
+    slots: ActivitySlot[];
+    declined: boolean;
+    plusOne: boolean;
+  },
 ) => {
   const db = createDb(env);
   const now = new Date().toISOString();
@@ -17,12 +23,18 @@ export const upsertAvailability = async (
       userId: params.userId,
       slots: params.slots,
       declined: params.declined,
+      plusOne: params.plusOne,
       created: now,
       updated: now,
     })
     .onConflictDoUpdate({
       target: [activityAvailabilityTable.activityId, activityAvailabilityTable.userId],
-      set: { slots: params.slots, declined: params.declined, updated: now },
+      set: {
+        slots: params.slots,
+        declined: params.declined,
+        plusOne: params.plusOne,
+        updated: now,
+      },
     })
     .returning();
 

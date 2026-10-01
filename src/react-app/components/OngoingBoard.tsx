@@ -5,7 +5,13 @@ import { useEffect, useRef, useState } from "react";
 
 import type { ActivitySlot } from "../../worker/db/schema.ts";
 import { bookingOverlayPercent, bookingsForDay } from "../lib/booking-slots.ts";
-import { type Responder, respondersBySlot, slotKey } from "../lib/responders.ts";
+import {
+  headcount,
+  type RespondingUser,
+  responderLabel,
+  respondersBySlot,
+  slotKey,
+} from "../lib/responders.ts";
 import {
   bookedSlotOverlayClass,
   bookingOverlayClass,
@@ -56,8 +62,8 @@ const formatDayLabel = (d: Date) =>
 
 /** Native tooltip naming who picked a cell — the full breakdown lives on the
  * activity's own page, this is just the hover answer. */
-const namesTitle = (responders: Responder[]) =>
-  responders.length > 0 ? responders.map((responder) => responder.name).join(", ") : undefined;
+const namesTitle = (responders: RespondingUser[]) =>
+  responders.length > 0 ? responders.map(responderLabel).join(", ") : undefined;
 
 const hourSetForDate = (slots: ActivitySlot[], dateStr: string) => {
   const set = new Set<number>();
@@ -117,8 +123,9 @@ const ActivityPickerCard = ({ activity, days }: CardProps) => {
     clearTimeout(saveTimerRef.current);
     saveTimerRef.current = setTimeout(() => {
       upsertAvailability.mutate(
-        // Persistent activities don't support declining — always false.
-        { activityId: activity.id, slots: next, declined: false },
+        // Persistent activities support neither declining nor a +1 — those
+        // are one-off concepts.
+        { activityId: activity.id, slots: next, declined: false, plusOne: false },
         { onSettled: () => (dirtyRef.current = false) },
       );
     }, SAVE_DEBOUNCE_MS);
@@ -234,7 +241,7 @@ const ActivityPickerCard = ({ activity, days }: CardProps) => {
               const dateStr = toDateStr(d);
               const selected = isDaySelected(dateStr);
               const dayResponders = responders[slotKey(dateStr)] ?? [];
-              const others = dayResponders.length;
+              const others = headcount(dayResponders);
               const booked = activity.bookedSlots[dateStr] ?? false;
               return (
                 <div key={dateStr} className="group relative rounded-sm">
@@ -313,7 +320,7 @@ const ActivityPickerCard = ({ activity, days }: CardProps) => {
                   {HOURS.map((hour) => {
                     const selected = hourSetForDate(slots, dateStr).has(hour);
                     const hourResponders = responders[slotKey(dateStr, hour)] ?? [];
-                    const others = hourResponders.length;
+                    const others = headcount(hourResponders);
                     return (
                       <div
                         key={hour}

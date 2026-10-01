@@ -4,7 +4,20 @@ import type { ActivityWithAvailability } from "../queries/activities.ts";
 export type ActivityResponse = ActivityWithAvailability["responses"][number];
 type ResponseSlot = ActivityResponse["slots"][number];
 
+/** A channel member, with no answer attached. */
 export type Responder = { userId: string; name: string };
+
+/** Someone who has answered, and whether they're bringing a guest. */
+export type RespondingUser = Responder & { plusOne: boolean };
+
+/** Heads rather than rows: a +1 is another person at the table, and that's
+ * what gets compared against the activity's ideal headcount. */
+export const headcount = (people: RespondingUser[]) =>
+  people.length + people.filter((person) => person.plusOne).length;
+
+/** "Karl +1" / "Karl" — the label used wherever a responder is named. */
+export const responderLabel = (person: RespondingUser) =>
+  person.plusOne ? `${person.name} +1` : person.name;
 
 const timeToMinutes = (time: string) => Number(time.slice(0, 2)) * 60 + Number(time.slice(3, 5));
 
@@ -37,8 +50,8 @@ const keysForSlot = (slot: ResponseSlot): string[] => {
 export const respondersBySlot = (
   responses: ActivityResponse[],
   excludeUserId?: string,
-): Record<string, Responder[]> => {
-  const bySlot: Record<string, Responder[]> = {};
+): Record<string, RespondingUser[]> => {
+  const bySlot: Record<string, RespondingUser[]> = {};
 
   for (const response of responses) {
     if (response.userId === excludeUserId) continue;
@@ -46,7 +59,7 @@ export const respondersBySlot = (
     for (const slot of response.slots) {
       for (const key of keysForSlot(slot)) {
         const list = bySlot[key] ?? [];
-        list.push({ userId: response.userId, name: response.name });
+        list.push({ userId: response.userId, name: response.name, plusOne: response.plusOne });
         bySlot[key] = list;
       }
     }
@@ -80,7 +93,7 @@ export const availableForBooking = (
   date: string,
   from: string,
   to: string,
-): Responder[] => {
+): RespondingUser[] => {
   const windowFrom = timeToMinutes(from);
   const windowTo = timeToMinutes(to);
 
@@ -92,7 +105,11 @@ export const availableForBooking = (
         return range.from < windowTo && range.to > windowFrom;
       }),
     )
-    .map((response) => ({ userId: response.userId, name: response.name }));
+    .map((response) => ({
+      userId: response.userId,
+      name: response.name,
+      plusOne: response.plusOne,
+    }));
 };
 
 /** Split the channel roster by what each member answered — the three lists
@@ -100,15 +117,23 @@ export const availableForBooking = (
 export const splitByResponse = (
   responses: ActivityResponse[],
   members: Responder[],
-): { available: Responder[]; declined: Responder[]; noAnswer: Responder[] } => {
+): { available: RespondingUser[]; declined: RespondingUser[]; noAnswer: Responder[] } => {
   const byUserId = new Map(responses.map((response) => [response.userId, response]));
 
   const available = responses
     .filter((response) => !response.declined)
-    .map((response) => ({ userId: response.userId, name: response.name }));
+    .map((response) => ({
+      userId: response.userId,
+      name: response.name,
+      plusOne: response.plusOne,
+    }));
   const declined = responses
     .filter((response) => response.declined)
-    .map((response) => ({ userId: response.userId, name: response.name }));
+    .map((response) => ({
+      userId: response.userId,
+      name: response.name,
+      plusOne: response.plusOne,
+    }));
   const noAnswer = members.filter((member) => !byUserId.has(member.userId));
 
   return { available, declined, noAnswer };

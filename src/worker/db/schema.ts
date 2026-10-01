@@ -128,6 +128,11 @@ export const activityAvailabilityTable = sqliteTable(
      * yet — mutually exclusive with having any slots selected. Only
      * surfaced for one-off activities; persistent ones always send `false`. */
     declined: integer({ mode: "boolean" }).notNull().default(false),
+    /** "I'm bringing someone." A flag rather than a count — one guest each is
+     * the only case worth modelling, and it keeps the headcount arithmetic
+     * honest. The guest is anonymous here: whoever books is responsible for
+     * typing a name into the booking's guest list. */
+    plusOne: integer("plus_one", { mode: "boolean" }).notNull().default(false),
     created: text().notNull(),
     updated: text().notNull(),
   },
@@ -137,6 +142,7 @@ export const activityAvailabilityTable = sqliteTable(
       "activity_availability_declined_no_slots",
       sql`${t.declined} = 0 OR json_array_length(${t.slots}) = 0`,
     ),
+    check("activity_availability_declined_no_plus_one", sql`${t.declined} = 0 OR ${t.plusOne} = 0`),
   ],
 );
 

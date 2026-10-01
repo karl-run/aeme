@@ -24,6 +24,8 @@ const buildActivitySuggestionMessage = (params: {
   suggestedDates: string[] | null;
   endTime: string;
   responders: string[];
+  /** Responders plus their guests — what "Available (N)" counts. */
+  headcount: number;
   decliners: string[];
 }) => {
   const formattedDates = params.suggestedDates
@@ -64,7 +66,7 @@ const buildActivitySuggestionMessage = (params: {
         type: "mrkdwn",
         text:
           params.responders.length > 0
-            ? `👥 *Available (${params.responders.length})*\n${params.responders.join(", ")}`
+            ? `👥 *Available (${params.headcount})*\n${params.responders.join(", ")}`
             : "👥 _No responses yet._",
       },
     },
@@ -110,16 +112,18 @@ export const announceActivitySuggestion = async (env: Env, activityId: string): 
       userId: activityAvailabilityTable.userId,
       slots: activityAvailabilityTable.slots,
       declined: activityAvailabilityTable.declined,
+      plusOne: activityAvailabilityTable.plusOne,
     })
     .from(activityAvailabilityTable)
     .where(eq(activityAvailabilityTable.activityId, activityId));
 
-  const responders = availabilityRows
-    .filter((row) => row.slots.length > 0)
-    .map((row) => {
-      const days = new Set(row.slots.map((slot) => slot.date)).size;
-      return `<@${row.userId}> (${days} day${days === 1 ? "" : "s"})`;
-    });
+  const available = availabilityRows.filter((row) => row.slots.length > 0);
+  const responders = available.map((row) => {
+    const days = new Set(row.slots.map((slot) => slot.date)).size;
+    return `<@${row.userId}>${row.plusOne ? " +1" : ""} (${days} day${days === 1 ? "" : "s"})`;
+  });
+  // Heads, not rows: a +1 is another person at the table.
+  const headcount = available.length + available.filter((row) => row.plusOne).length;
   const decliners = availabilityRows.filter((row) => row.declined).map((row) => `<@${row.userId}>`);
 
   const { text, blocks } = buildActivitySuggestionMessage({
@@ -130,6 +134,7 @@ export const announceActivitySuggestion = async (env: Env, activityId: string): 
     // router's zod schema and the matching DB check constraint.
     endTime: activity.endTime!,
     responders,
+    headcount,
     decliners,
   });
 
@@ -155,6 +160,8 @@ export type ActivityResponse = {
   name: string;
   slots: ActivitySlot[];
   declined: boolean;
+  /** Bringing one guest. Anonymous until someone books and types a name. */
+  plusOne: boolean;
 };
 
 export const createActivity = async (
@@ -264,6 +271,7 @@ export const listActivitiesForChannel = async (env: Env, channelId: string, user
       created: activitiesTable.created,
       slots: activityAvailabilityTable.slots,
       declined: activityAvailabilityTable.declined,
+      plusOne: activityAvailabilityTable.plusOne,
     })
     .from(activitiesTable)
     .leftJoin(
@@ -285,6 +293,7 @@ export const listActivitiesForChannel = async (env: Env, channelId: string, user
           name: usersTable.name,
           slots: activityAvailabilityTable.slots,
           declined: activityAvailabilityTable.declined,
+          plusOne: activityAvailabilityTable.plusOne,
         })
         .from(activityAvailabilityTable)
         .innerJoin(usersTable, eq(usersTable.userId, activityAvailabilityTable.userId))
@@ -304,7 +313,13 @@ export const listActivitiesForChannel = async (env: Env, channelId: string, user
     if (row.slots.length === 0 && !row.declined) continue;
 
     const list = responsesByActivity.get(row.activityId) ?? [];
-    list.push({ userId: row.userId, name: row.name, slots: row.slots, declined: row.declined });
+    list.push({
+      userId: row.userId,
+      name: row.name,
+      slots: row.slots,
+      declined: row.declined,
+      plusOne: row.plusOne,
+    });
     responsesByActivity.set(row.activityId, list);
   }
 
@@ -410,6 +425,7 @@ export const listActivitiesForChannel = async (env: Env, channelId: string, user
     ...row,
     slots: row.slots ?? [],
     declined: row.declined ?? false,
+    plusOne: row.plusOne ?? false,
     responses: responsesByActivity.get(row.id) ?? [],
     locations: locationsByActivity.get(row.id) ?? [],
     bookedSlots: bookedSlotsByActivity.get(row.id) ?? {},

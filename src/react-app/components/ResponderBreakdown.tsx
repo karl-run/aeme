@@ -1,4 +1,10 @@
-import { rangesForDate, respondedDates, splitByResponse } from "../lib/responders.ts";
+import {
+  headcount,
+  rangesForDate,
+  respondedDates,
+  responderLabel,
+  splitByResponse,
+} from "../lib/responders.ts";
 import type { ActivityWithAvailability } from "../queries/activities.ts";
 import { useChannelMembersQuery } from "../queries/channelMembers.ts";
 
@@ -55,7 +61,16 @@ export const ResponderBreakdown = ({ activity }: Props) => {
               <div key={date} className="flex flex-col gap-1">
                 <p className="text-sm">
                   {formatDate(date)}
-                  <span className="text-muted-foreground"> · {onDate.length}</span>
+                  <span className="text-muted-foreground">
+                    {" · "}
+                    {headcount(
+                      onDate.map((response) => ({
+                        userId: response.userId,
+                        name: response.name,
+                        plusOne: response.plusOne,
+                      })),
+                    )}
+                  </span>
                 </p>
                 {onDate.length === 0 ? (
                   <p className="text-xs text-muted-foreground">No one yet.</p>
@@ -68,7 +83,7 @@ export const ResponderBreakdown = ({ activity }: Props) => {
                           key={response.userId}
                           className="rounded-full border border-emerald-800 bg-emerald-800/20 px-2 py-0.5 text-xs"
                         >
-                          {response.name}
+                          {responderLabel(response)}
                           {ranges.length > 0 && (
                             <span className="text-muted-foreground"> {ranges.join(", ")}</span>
                           )}
