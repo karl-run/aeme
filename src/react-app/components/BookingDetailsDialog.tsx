@@ -1,4 +1,5 @@
 import { Link } from "@tanstack/react-router";
+import { CalendarPlusIcon, DownloadIcon } from "lucide-react";
 import type { ReactElement } from "react";
 
 import { isUrl } from "../lib/is-url.ts";
@@ -98,10 +99,11 @@ export const BookingDetailsDialog = ({
           </p>
         </div>
 
-        <DialogFooter>
+        <div className="flex flex-wrap gap-2">
           <Button
             type="button"
             variant="outline"
+            size="sm"
             render={
               <a
                 href={`/api/bookings/${booking.id}/google-calendar`}
@@ -111,16 +113,22 @@ export const BookingDetailsDialog = ({
             }
             nativeButton={false}
           >
-            Add to Google Calendar
+            <CalendarPlusIcon data-icon="inline-start" />
+            Google Calendar
           </Button>
           <Button
             type="button"
             variant="outline"
+            size="sm"
             render={<a href={`/api/bookings/${booking.id}/ics`} />}
             nativeButton={false}
           >
+            <DownloadIcon data-icon="inline-start" />
             Download ICS
           </Button>
+        </div>
+
+        <DialogFooter>
           <DialogClose render={<Button type="button" variant="outline" />}>Close</DialogClose>
           {isOwner && (
             <Button
