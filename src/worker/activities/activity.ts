@@ -11,7 +11,7 @@ import {
   type ActivitySlot,
   usersTable,
 } from "../db/schema.ts";
-import { postOrUpdateMessage } from "../slack/messages.ts";
+import { deleteMessage, postOrUpdateMessage } from "../slack/messages.ts";
 
 /** Builds the Slack `text` fallback + Block Kit `blocks` announcing a new
  * one-off activity suggestion — persistent activities aren't announced this
@@ -452,4 +452,40 @@ export const listActivitiesForChannel = async (env: Env, channelId: string, user
       attendeeNames: attendeeNamesByBooking.get(booking.id) ?? [],
     })),
   }));
+};
+
+/** Whether anything has been booked for this activity — the one thing that
+ * blocks deleting it, since a booking has its own Slack post and its own
+ * attendees who are expecting it to happen. */
+export const activityHasBookings = async (env: Env, activityId: string): Promise<boolean> => {
+  const db = createDb(env);
+
+  const [booking] = await db
+    .select({ id: activityBookingsTable.id })
+    .from(activityBookingsTable)
+    .where(eq(activityBookingsTable.activityId, activityId))
+    .limit(1);
+
+  return booking !== undefined;
+};
+
+/** Removes an activity and everything hanging off it. Only the creator may
+ * call this, and only while it has no bookings (both enforced by the router).
+ *
+ * Availability rows and fixed locations go with it via ON DELETE CASCADE, so
+ * unlike `deleteBooking` there's nothing to hand-cascade here. The Slack
+ * suggestion post is deleted afterwards on a best-effort basis, for the same
+ * reason: an outage should leave a stale post rather than block the delete
+ * the user asked for. */
+export const deleteActivity = async (
+  env: Env,
+  params: { activityId: string; channelId: string; slackMessageTs: string | null },
+) => {
+  const db = createDb(env);
+
+  await db.delete(activitiesTable).where(eq(activitiesTable.id, params.activityId));
+
+  if (params.slackMessageTs) {
+    await deleteMessage(env, { channel: params.channelId, ts: params.slackMessageTs });
+  }
 };

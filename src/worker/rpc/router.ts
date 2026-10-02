@@ -4,7 +4,9 @@ import { deleteCookie, getCookie } from "hono/cookie";
 import * as z from "zod";
 
 import {
+  activityHasBookings,
   createActivity,
+  deleteActivity,
   getActivityById,
   listActivitiesForChannel,
   updateActivity,
@@ -276,6 +278,35 @@ export const apiRouter = new Hono<{ Bindings: Env }>()
     });
 
     return c.json({ activity: updated });
+  })
+  .delete("/activities/:id", async (c) => {
+    const sessionId = getCookie(c, SESSION_COOKIE_NAME);
+    const session = sessionId ? await getSessionMeta(c.env, sessionId) : null;
+    if (!session) return c.json({ error: "Unauthorized" }, 401);
+
+    const activityId = c.req.param("id");
+    const activity = await getActivityById(c.env, activityId);
+    if (!activity || activity.channelId !== session.channelId) {
+      return c.json({ error: "Not found" }, 404);
+    }
+    if (activity.createdBy !== session.userId) {
+      return c.json({ error: "Only the activity's creator can delete it." }, 403);
+    }
+
+    // Deleting would cascade the bookings away, and with them a Slack post
+    // and a set of attendees expecting to turn up. Make that a separate,
+    // deliberate act rather than a side effect of this one.
+    if (await activityHasBookings(c.env, activityId)) {
+      return c.json({ error: "Delete this activity's bookings first." }, 400);
+    }
+
+    await deleteActivity(c.env, {
+      activityId,
+      channelId: activity.channelId,
+      slackMessageTs: activity.slackMessageTs,
+    });
+
+    return c.json({ success: true });
   })
   .put("/activities/:id/availability", zValidator("json", upsertAvailabilitySchema), async (c) => {
     const sessionId = getCookie(c, SESSION_COOKIE_NAME);

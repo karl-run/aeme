@@ -75,3 +75,20 @@ export const useUpdateActivityMutation = () => {
     },
   });
 };
+
+/** Removes an activity, its availability and its fixed locations, plus the
+ * Slack suggestion post. Refused by the server while it still has bookings. */
+export const useDeleteActivityMutation = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (params: { activityId: string }) => {
+      const res = await client.activities[":id"].$delete({ param: { id: params.activityId } });
+      if (!res.ok) throw new Error("Failed to delete activity.");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: activitiesQueryKey });
+    },
+  });
+};

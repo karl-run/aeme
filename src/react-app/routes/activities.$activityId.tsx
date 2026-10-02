@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { ArrowLeftIcon, PencilIcon, PlusIcon } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
@@ -6,6 +6,7 @@ import type { ActivitySlot } from "../../worker/db/schema.ts";
 import { ActivityLocations } from "../components/ActivityLocations.tsx";
 import { AvailabilityGrid } from "../components/AvailabilityGrid.tsx";
 import { BookingDetailsDialog } from "../components/BookingDetailsDialog.tsx";
+import { DeleteActivityDialog } from "../components/DeleteActivityDialog.tsx";
 import { EditActivityDialog } from "../components/EditActivityDialog.tsx";
 import { PageContainer } from "../components/PageContainer.tsx";
 import { ResponderBreakdown } from "../components/ResponderBreakdown.tsx";
@@ -44,6 +45,7 @@ const ActivityDetail = () => {
   const activities = useActivitiesQuery();
   const session = useSessionQuery();
   const upsertAvailability = useUpsertAvailabilityMutation();
+  const navigate = useNavigate();
 
   const activity = activities.data?.find((candidate) => candidate.id === activityId);
 
@@ -350,6 +352,22 @@ const ActivityDetail = () => {
             </ul>
           )}
         </Section>
+        {isOwner && (
+          <Section
+            title="Delete activity"
+            description="Made this by mistake, or in the wrong channel? There's no other way to remove it."
+            className="border-destructive/30 bg-destructive/5"
+          >
+            <div>
+              <DeleteActivityDialog
+                activityId={activity.id}
+                title={activity.title}
+                bookingCount={bookings.length}
+                onDeleted={() => navigate({ to: "/" })}
+              />
+            </div>
+          </Section>
+        )}
       </div>
     </PageContainer>
   );
