@@ -16,6 +16,7 @@ import {
 import { useTapOrDrag } from "../lib/tap-or-drag.ts";
 import type { ActivityWithAvailability } from "../queries/activities.ts";
 import { BookingInfoPopover } from "./BookingInfoPopover.tsx";
+import { HourAxis } from "./HourAxis.tsx";
 import { Button } from "./ui/button.tsx";
 
 const HOURS = Array.from({ length: 16 }, (_, i) => i + 8); // 08:00–23:00, each cell covers one hour
@@ -306,16 +307,7 @@ export const AvailabilityGrid = ({
             );
           })}
 
-          <div className="flex flex-col">
-            {HOURS.map((hour) => (
-              <div
-                key={hour}
-                className="flex h-6 items-center justify-end pr-2 text-xs text-muted-foreground"
-              >
-                {formatHour(hour)}
-              </div>
-            ))}
-          </div>
+          <HourAxis hours={HOURS} cellPx={HOUR_CELL_PX} />
 
           {days.map((d) => {
             const dateStr = toDateStr(d);

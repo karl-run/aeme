@@ -24,6 +24,14 @@ const hoursInWindow = (from: string, to: string) => {
   return new Set(Array.from({ length: endHour - startHour }, (_, i) => startHour + i));
 };
 
+/** Sits on the line where its hour starts (the cell's left edge), not centered
+ * under the cell — hence the extra tick after the last cell. */
+const HourTick = ({ hour }: { hour: number }) => (
+  <span className="self-start -translate-x-1/2 text-[9px] text-muted-foreground">
+    {String(hour).padStart(2, "0")}
+  </span>
+);
+
 type Props = {
   responses: ActivityResponse[];
   bookings: ActivityWithAvailability["bookings"];
@@ -96,7 +104,7 @@ export const BookingAvailabilityStrip = ({
           : `Drag to pick a time — the best hours have ${peak} available.`}
       </p>
 
-      <div className="-mx-1 overflow-x-auto px-1 pb-1">
+      <div className="-mx-2 overflow-x-auto px-2 pb-1">
         <div className="flex min-w-max select-none">
           {HOURS.map((hour) => {
             const hourResponders = responders[slotKey(date, hour)] ?? [];
@@ -145,12 +153,15 @@ export const BookingAvailabilityStrip = ({
                     <span className="pointer-events-none absolute inset-x-0 bottom-0 h-[3px] bg-green-500" />
                   )}
                 </div>
-                <span className="text-[9px] text-muted-foreground">
-                  {String(hour).padStart(2, "0")}
-                </span>
+                <HourTick hour={hour} />
               </div>
             );
           })}
+          {/* Zero-width: just carries the label for where the last hour ends. */}
+          <div className="flex w-0 shrink-0 flex-col items-center gap-0.5">
+            <div className="h-10" />
+            <HourTick hour={HOURS[HOURS.length - 1] + 1} />
+          </div>
         </div>
       </div>
     </div>

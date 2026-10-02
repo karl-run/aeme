@@ -24,6 +24,7 @@ import { useUpsertAvailabilityMutation } from "../queries/availability.ts";
 import { useSessionQuery } from "../queries/session.ts";
 import { BookingInfoPopover } from "./BookingInfoPopover.tsx";
 import { EditActivityDialog } from "./EditActivityDialog.tsx";
+import { HourAxis } from "./HourAxis.tsx";
 import { Button } from "./ui/button.tsx";
 import { UpcomingBookings } from "./UpcomingBookings.tsx";
 
@@ -310,16 +311,7 @@ const ActivityPickerCard = ({ activity, days }: CardProps) => {
               gridTemplateColumns: `${LABEL_COLUMN_PX}px repeat(${days.length}, minmax(${DAY_COLUMN_MIN_PX}px, ${DAY_COLUMN_MAX_PX}px))`,
             }}
           >
-            <div className="flex flex-col">
-              {HOURS.map((hour) => (
-                <div
-                  key={hour}
-                  className="flex h-6 items-center justify-end pr-2 text-xs text-muted-foreground"
-                >
-                  {formatHour(hour)}
-                </div>
-              ))}
-            </div>
+            <HourAxis hours={HOURS} cellPx={HOUR_CELL_PX} />
 
             {days.map((d) => {
               const dateStr = toDateStr(d);
