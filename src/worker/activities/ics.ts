@@ -108,6 +108,13 @@ export const buildBookingIcs = (params: BookingEventParams) => {
  * timezone — the same floating-time semantics as the ICS. */
 export const buildBookingGoogleCalendarUrl = (params: BookingEventParams) => {
   const { description, locationText } = buildBookingEventFields(params);
+  // Google matches the location *text* against Maps places and doesn't follow
+  // links, so a fixed location passes just its name (which Google can tag)
+  // and its maps link moves into the details instead.
+  const location = params.fixedLocation?.name ?? locationText;
+  const details = params.fixedLocation
+    ? [description, `Map: ${params.fixedLocation.mapsUrl}`].filter(Boolean).join("\n\n")
+    : description;
 
   const url = new URL("https://calendar.google.com/calendar/render");
   url.searchParams.set("action", "TEMPLATE");
@@ -116,7 +123,7 @@ export const buildBookingGoogleCalendarUrl = (params: BookingEventParams) => {
     "dates",
     `${toIcsDateTime(params.date, params.from)}/${toIcsDateTime(params.date, params.to)}`,
   );
-  if (description) url.searchParams.set("details", description);
-  if (locationText) url.searchParams.set("location", locationText);
+  if (details) url.searchParams.set("details", details);
+  if (location) url.searchParams.set("location", location);
   return url.toString();
 };
