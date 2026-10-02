@@ -102,10 +102,24 @@ export const BookingDetailsDialog = ({
           <Button
             type="button"
             variant="outline"
+            render={
+              <a
+                href={`/api/bookings/${booking.id}/google-calendar`}
+                target="_blank"
+                rel="noreferrer"
+              />
+            }
+            nativeButton={false}
+          >
+            Add to Google Calendar
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
             render={<a href={`/api/bookings/${booking.id}/ics`} />}
             nativeButton={false}
           >
-            Add to calendar
+            Download ICS
           </Button>
           <DialogClose render={<Button type="button" variant="outline" />}>Close</DialogClose>
           {isOwner && (

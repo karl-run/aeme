@@ -97,7 +97,7 @@ const buildBookingMessage = (params: {
       elements: [
         {
           type: "mrkdwn",
-          text: `🗓️ <${BASE_URL}/api/bookings/${params.bookingId}/ics|Add to calendar>`,
+          text: `🗓️ <${BASE_URL}/api/bookings/${params.bookingId}/google-calendar|Add to Google Calendar> · <${BASE_URL}/api/bookings/${params.bookingId}/ics|Download ICS>`,
         },
       ],
     },

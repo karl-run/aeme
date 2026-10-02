@@ -28,7 +28,7 @@ const toIcsDateTime = (date: string, time: string) =>
 
 const toIcsTimestamp = (iso: string) => iso.replace(/[-:]/g, "").replace(/\.\d+/, "");
 
-export const buildBookingIcs = (params: {
+export type BookingEventParams = {
   bookingId: string;
   created: string;
   activityTitle: string;
@@ -52,7 +52,11 @@ export const buildBookingIcs = (params: {
   attendeeNames: string[];
   /** Advisory headcount, rendered as "3/4" when set. */
   idealMemberCount: number | null;
-}) => {
+};
+
+/** The human-facing fields of a booking's calendar event, shared by the ICS
+ * file and the Google Calendar link so both say the same thing. */
+const buildBookingEventFields = (params: BookingEventParams) => {
   const locationText = params.fixedLocation
     ? `${params.fixedLocation.name}, ${params.fixedLocation.mapsUrl}`
     : params.location;
@@ -73,6 +77,12 @@ export const buildBookingIcs = (params: {
     .filter((part) => part !== "")
     .join("\n\n");
 
+  return { description, locationText };
+};
+
+export const buildBookingIcs = (params: BookingEventParams) => {
+  const { description, locationText } = buildBookingEventFields(params);
+
   const lines = [
     "BEGIN:VCALENDAR",
     "VERSION:2.0",
@@ -91,4 +101,22 @@ export const buildBookingIcs = (params: {
   lines.push("END:VEVENT", "END:VCALENDAR");
 
   return lines.map(foldIcsLine).join("\r\n") + "\r\n";
+};
+
+/** Google Calendar's "create event" template URL. Times are passed without a
+ * `Z` suffix or `ctz`, which Google interprets in the user's own calendar
+ * timezone — the same floating-time semantics as the ICS. */
+export const buildBookingGoogleCalendarUrl = (params: BookingEventParams) => {
+  const { description, locationText } = buildBookingEventFields(params);
+
+  const url = new URL("https://calendar.google.com/calendar/render");
+  url.searchParams.set("action", "TEMPLATE");
+  url.searchParams.set("text", params.activityTitle);
+  url.searchParams.set(
+    "dates",
+    `${toIcsDateTime(params.date, params.from)}/${toIcsDateTime(params.date, params.to)}`,
+  );
+  if (description) url.searchParams.set("details", description);
+  if (locationText) url.searchParams.set("location", locationText);
+  return url.toString();
 };

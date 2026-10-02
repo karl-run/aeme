@@ -112,12 +112,22 @@ export const BookingInfoPopover = ({
                   ? `Joining: ${booking.attendeeNames.join(", ")}`
                   : "No one else joining yet."}
               </p>
-              <a
-                href={`/api/bookings/${booking.id}/ics`}
-                className="text-xs text-muted-foreground underline"
-              >
-                Add to calendar
-              </a>
+              <p className="flex gap-3 text-xs">
+                <a
+                  href={`/api/bookings/${booking.id}/google-calendar`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-muted-foreground underline"
+                >
+                  Add to Google Calendar
+                </a>
+                <a
+                  href={`/api/bookings/${booking.id}/ics`}
+                  className="text-muted-foreground underline"
+                >
+                  Download ICS
+                </a>
+              </p>
             </div>
           ))}
         </div>

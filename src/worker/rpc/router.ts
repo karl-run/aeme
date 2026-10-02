@@ -19,7 +19,11 @@ import {
   listBookingAttendeeNames,
   updateBooking,
 } from "../activities/booking.ts";
-import { buildBookingIcs } from "../activities/ics.ts";
+import {
+  buildBookingGoogleCalendarUrl,
+  buildBookingIcs,
+  type BookingEventParams,
+} from "../activities/ics.ts";
 import {
   archiveActivityLocation,
   createActivityLocation,
@@ -166,6 +170,41 @@ const createLocationSchema = z.object({
   name: z.string().trim().min(1),
   mapsUrl: z.url(),
 });
+
+const loadBookingEventParams = async (
+  env: Env,
+  bookingId: string,
+): Promise<BookingEventParams | null> => {
+  const booking = await getBookingById(env, bookingId);
+  if (!booking) return null;
+
+  const activity = await getActivityById(env, booking.activityId);
+  if (!activity) return null;
+
+  const [bookingLocation, attendeeNames, createdByName] = await Promise.all([
+    booking.locationId ? getActivityLocationById(env, booking.locationId) : null,
+    listBookingAttendeeNames(env, booking.id),
+    getUserName(env, booking.createdBy),
+  ]);
+
+  return {
+    bookingId: booking.id,
+    created: booking.created,
+    activityTitle: activity.title,
+    activityDescription: activity.description,
+    date: booking.date,
+    from: booking.from,
+    to: booking.to,
+    description: booking.description,
+    location: booking.location,
+    fixedLocation: bookingLocation
+      ? { name: bookingLocation.name, mapsUrl: bookingLocation.mapsUrl }
+      : null,
+    createdByName: createdByName ?? "someone",
+    attendeeNames,
+    idealMemberCount: activity.idealMemberCount,
+  };
+};
 
 export const apiRouter = new Hono<{ Bindings: Env }>()
   .get("/session", async (c) => {
@@ -582,45 +621,25 @@ export const apiRouter = new Hono<{ Bindings: Env }>()
     await archiveActivityLocation(c.env, locationId);
     return c.json({ success: true });
   })
+  // Both calendar routes are deliberately public (no session check): the
+  // bookingId is an unguessable UUID, and calendar apps/browsers fetching
+  // these links (e.g. from Slack) won't have our session cookie anyway.
   .get("/bookings/:bookingId/ics", async (c) => {
-    // Deliberately public (no session check): the bookingId is an
-    // unguessable UUID, and calendar apps/browsers fetching this link won't
-    // have our session cookie anyway.
-    const bookingId = c.req.param("bookingId");
-    const booking = await getBookingById(c.env, bookingId);
-    if (!booking) return c.notFound();
+    const params = await loadBookingEventParams(c.env, c.req.param("bookingId"));
+    if (!params) return c.notFound();
 
-    const activity = await getActivityById(c.env, booking.activityId);
-    if (!activity) return c.notFound();
-
-    const [bookingLocation, attendeeNames, createdByName] = await Promise.all([
-      booking.locationId ? getActivityLocationById(c.env, booking.locationId) : null,
-      listBookingAttendeeNames(c.env, booking.id),
-      getUserName(c.env, booking.createdBy),
-    ]);
-
-    const ics = buildBookingIcs({
-      bookingId: booking.id,
-      created: booking.created,
-      activityTitle: activity.title,
-      activityDescription: activity.description,
-      date: booking.date,
-      from: booking.from,
-      to: booking.to,
-      description: booking.description,
-      location: booking.location,
-      fixedLocation: bookingLocation
-        ? { name: bookingLocation.name, mapsUrl: bookingLocation.mapsUrl }
-        : null,
-      createdByName: createdByName ?? "someone",
-      attendeeNames,
-      idealMemberCount: activity.idealMemberCount,
-    });
-
-    return c.body(ics, 200, {
+    return c.body(buildBookingIcs(params), 200, {
       "Content-Type": "text/calendar; charset=utf-8",
       "Content-Disposition": `attachment; filename="booking.ics"`,
     });
+  })
+  // A redirect rather than a URL built client-side, so the web app and Slack
+  // share one link and the attendee list is current at click time.
+  .get("/bookings/:bookingId/google-calendar", async (c) => {
+    const params = await loadBookingEventParams(c.env, c.req.param("bookingId"));
+    if (!params) return c.notFound();
+
+    return c.redirect(buildBookingGoogleCalendarUrl(params), 302);
   });
 
 if (import.meta.env.DEV) {
