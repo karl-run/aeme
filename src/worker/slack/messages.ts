@@ -177,3 +177,32 @@ export const deleteMessage = async (
 
   return true;
 };
+
+type GetPermalinkResponse = {
+  ok: boolean;
+  permalink?: string;
+  error?: string;
+};
+
+/** A message's shareable URL — for a threaded reply, one that opens the
+ * thread. Returns null (and logs) on failure rather than throwing, like the
+ * other helpers here. */
+export const getPermalink = async (
+  env: Env,
+  params: { channel: string; ts: string },
+): Promise<string | null> => {
+  // A read method: takes query params, not a JSON body.
+  const query = new URLSearchParams({ channel: params.channel, message_ts: params.ts });
+  const response = await fetch(`https://slack.com/api/chat.getPermalink?${query}`, {
+    headers: { Authorization: `Bearer ${env.SLACK_BOT_TOKEN}` },
+  });
+
+  const body = (await response.json()) as GetPermalinkResponse;
+
+  if (!body.ok || !body.permalink) {
+    console.error(`chat.getPermalink failed: ${body.error}`);
+    return null;
+  }
+
+  return body.permalink;
+};

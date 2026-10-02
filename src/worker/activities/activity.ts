@@ -1,4 +1,4 @@
-import { and, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, isNotNull, sql } from "drizzle-orm";
 
 import { BASE_URL, DISPLAY_TIME_ZONE } from "../constants.ts";
 import { createDb } from "../db/db.ts";
@@ -11,7 +11,7 @@ import {
   type ActivitySlot,
   usersTable,
 } from "../db/schema.ts";
-import { deleteMessage, postOrUpdateMessage } from "../slack/messages.ts";
+import { deleteMessage, getPermalink, postOrUpdateMessage } from "../slack/messages.ts";
 
 /** Builds the Slack `text` fallback + Block Kit `blocks` announcing a new
  * one-off activity suggestion — persistent activities aren't announced this
@@ -26,6 +26,9 @@ const buildActivitySuggestionMessage = (params: {
   responders: string[];
   /** Responders plus their guests — what "Available (N)" counts. */
   headcount: number;
+  /** The activity's bookings that have a Slack post, in date order. A null
+   * `permalink` (the lookup failed) still lists the booking, just unlinked. */
+  bookings: { date: string; from: string; to: string; permalink: string | null }[];
   decliners: string[];
 }) => {
   const formattedDates = params.suggestedDates
@@ -71,6 +74,25 @@ const buildActivitySuggestionMessage = (params: {
             : "👥 _No responses yet._",
       },
     },
+    ...(params.bookings.length > 0
+      ? [
+          {
+            type: "section",
+            text: {
+              type: "mrkdwn",
+              text: `🗓️ *Booked*\n${params.bookings
+                .map((booking) => {
+                  const label = `${new Date(`${booking.date}T00:00:00`).toLocaleDateString(
+                    "en-US",
+                    { weekday: "short", month: "short", day: "numeric" },
+                  )} · ${booking.from}–${booking.to}`;
+                  return booking.permalink ? `<${booking.permalink}|${label}>` : label;
+                })
+                .join("\n")}`,
+            },
+          },
+        ]
+      : []),
     ...(params.decliners.length > 0
       ? [
           {
@@ -95,10 +117,10 @@ const buildActivitySuggestionMessage = (params: {
 };
 
 /** (Re-)posts the Slack announcement for a one-off activity's suggestion,
- * reflecting the current set of responses — edited in place via
+ * reflecting the current set of responses and links to its booking posts — edited in place via
  * `chat.update` once a post exists. No-ops for persistent activities, which
  * aren't announced this way. Call after creating the activity and again
- * whenever someone upserts their availability. */
+ * whenever someone upserts their availability or a booking changes. */
 export const announceActivitySuggestion = async (env: Env, activityId: string): Promise<void> => {
   const db = createDb(env);
 
@@ -127,6 +149,30 @@ export const announceActivitySuggestion = async (env: Env, activityId: string): 
   const headcount = available.length + available.filter((row) => row.plusOne).length;
   const decliners = availabilityRows.filter((row) => row.declined).map((row) => `<@${row.userId}>`);
 
+  const bookingRows = await db
+    .select({
+      date: activityBookingsTable.date,
+      from: activityBookingsTable.from,
+      to: activityBookingsTable.to,
+      slackMessageTs: activityBookingsTable.slackMessageTs,
+    })
+    .from(activityBookingsTable)
+    .where(
+      and(
+        eq(activityBookingsTable.activityId, activityId),
+        isNotNull(activityBookingsTable.slackMessageTs),
+      ),
+    )
+    .orderBy(asc(activityBookingsTable.date), asc(activityBookingsTable.from));
+  const bookings = await Promise.all(
+    bookingRows.map(async (row) => ({
+      date: row.date,
+      from: row.from,
+      to: row.to,
+      permalink: await getPermalink(env, { channel: activity.channelId, ts: row.slackMessageTs! }),
+    })),
+  );
+
   const { text, blocks } = buildActivitySuggestionMessage({
     title: activity.title,
     description: activity.description,
@@ -136,6 +182,7 @@ export const announceActivitySuggestion = async (env: Env, activityId: string): 
     endTime: activity.endTime!,
     responders,
     headcount,
+    bookings,
     decliners,
   });
 

@@ -5,6 +5,7 @@ import * as z from "zod";
 
 import {
   activityHasBookings,
+  announceActivitySuggestion,
   createActivity,
   deleteActivity,
   getActivityById,
@@ -474,6 +475,9 @@ export const apiRouter = new Hono<{ Bindings: Env }>()
       guestNames,
     });
 
+    // A one-off's suggestion post links to its bookings' posts.
+    if (!activity.persistent) await announceActivitySuggestion(c.env, activityId);
+
     return c.json({ booking });
   })
   .put(
@@ -538,6 +542,9 @@ export const apiRouter = new Hono<{ Bindings: Env }>()
         slackMessageTs: booking.slackMessageTs,
       });
 
+      // A one-off's suggestion post links to its bookings' posts.
+      if (!activity.persistent) await announceActivitySuggestion(c.env, activityId);
+
       return c.json({ success: true });
     },
   )
@@ -567,6 +574,9 @@ export const apiRouter = new Hono<{ Bindings: Env }>()
       channelId: activity.channelId,
       slackMessageTs: booking.slackMessageTs,
     });
+
+    // A one-off's suggestion post links to its bookings' posts.
+    if (!activity.persistent) await announceActivitySuggestion(c.env, activityId);
 
     return c.json({ success: true });
   })
