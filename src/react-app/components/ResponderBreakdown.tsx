@@ -8,6 +8,13 @@ import {
 import type { ActivityWithAvailability } from "../queries/activities.ts";
 import { useChannelMembersQuery } from "../queries/channelMembers.ts";
 
+const toDateStr = (d: Date) => {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+};
+
 const formatDate = (date: string) =>
   new Date(`${date}T00:00:00`).toLocaleDateString(undefined, {
     weekday: "long",
@@ -41,16 +48,24 @@ export const ResponderBreakdown = ({ activity }: Props) => {
   // A one-off with suggested dates is answering a fixed question, so list
   // every candidate date even when nobody picked it — "no one can make
   // Tuesday" is itself the answer. Otherwise only dates someone offered.
-  const dates =
+  const allDates =
     activity.suggestedDates && activity.suggestedDates.length > 0
       ? [...activity.suggestedDates].sort()
       : respondedDates(activity.responses);
+
+  // Only what's still ahead: a day that's been and gone can't be booked, and
+  // a persistent activity would otherwise grow an ever-longer history here.
+  // A day counts as upcoming for all of itself, matching `upcomingBookings`.
+  const today = toDateStr(new Date());
+  const dates = allDates.filter((date) => date >= today);
 
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-col gap-3">
         {dates.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No one has picked a day yet.</p>
+          <p className="text-sm text-muted-foreground">
+            {allDates.length > 0 ? "No upcoming days." : "No one has picked a day yet."}
+          </p>
         ) : (
           dates.map((date) => {
             const onDate = activity.responses.filter(
