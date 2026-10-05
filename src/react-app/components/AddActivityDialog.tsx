@@ -142,7 +142,7 @@ export const AddActivityDialog = () => {
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <Label>Availability type</Label>
+            <Label>Response type (how others will respond)</Label>
             <div className="flex gap-4">
               <label className="flex items-center gap-2 text-sm">
                 <input
@@ -151,7 +151,7 @@ export const AddActivityDialog = () => {
                   checked={slotGranularity === "day"}
                   onChange={() => setSlotGranularity("day")}
                 />
-                Any time that day
+                Date response
               </label>
               <label className="flex items-center gap-2 text-sm">
                 <input
@@ -160,7 +160,7 @@ export const AddActivityDialog = () => {
                   checked={slotGranularity === "hourly"}
                   onChange={() => setSlotGranularity("hourly")}
                 />
-                Specific hours
+                Hourly availability
               </label>
             </div>
           </div>
