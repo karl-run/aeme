@@ -1,6 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import { cn } from "cn";
-import { CheckIcon, PencilIcon, PlusIcon } from "lucide-react";
+import { CheckIcon, ChevronRightIcon, PencilIcon, PlusIcon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import type { ActivitySlot } from "../../worker/db/schema.ts";
@@ -174,9 +174,11 @@ const ActivityPickerCard = ({ activity, days }: CardProps) => {
             <Link
               to="/activities/$activityId"
               params={{ activityId: activity.id }}
-              className="font-semibold hover:underline"
+              aria-label={`Open ${activity.title}`}
+              className="group/title flex min-w-0 items-center gap-0.5 font-semibold underline-offset-4 hover:underline"
             >
-              {activity.title}
+              <span className="truncate">{activity.title}</span>
+              <ChevronRightIcon className="size-4 shrink-0 text-muted-foreground transition-transform group-hover/title:translate-x-0.5 group-hover/title:text-foreground" />
             </Link>
             {isOwner && (
               <EditActivityDialog

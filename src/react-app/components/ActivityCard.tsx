@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { CheckIcon, PencilIcon } from "lucide-react";
+import { CheckIcon, ChevronRightIcon, InfoIcon, PencilIcon } from "lucide-react";
 
 import { isRespondByPassed } from "../lib/activity-state.ts";
 import { headcount, responderLabel, splitByResponse } from "../lib/responders.ts";
@@ -70,9 +70,11 @@ export const ActivityCard = ({ activity }: Props) => {
             <Link
               to="/activities/$activityId"
               params={{ activityId: activity.id }}
-              className="font-medium hover:underline"
+              aria-label={`Open ${activity.title}`}
+              className="group/title flex min-w-0 items-center gap-0.5 font-medium underline-offset-4 hover:underline"
             >
-              {activity.title}
+              <span className="truncate">{activity.title}</span>
+              <ChevronRightIcon className="size-4 shrink-0 text-muted-foreground transition-transform group-hover/title:translate-x-0.5 group-hover/title:text-foreground" />
             </Link>
             {isOwner && (
               <EditActivityDialog
@@ -108,41 +110,54 @@ export const ActivityCard = ({ activity }: Props) => {
       </div>
 
       {isBooked ? (
-        <div className="flex flex-col gap-2 rounded-md border border-green-600/30 bg-green-600/10 p-3">
-          <div className="flex items-center gap-1.5 text-sm font-medium text-green-700 dark:text-green-400">
-            <CheckIcon className="size-4" />
-            Booked
-          </div>
-          {activity.bookings.map((booking) => (
-            <div key={booking.id} className="flex items-center justify-between gap-3">
-              <div className="min-w-0 text-sm">
-                <p>
-                  {formatBookingDate(booking.date)} · {booking.from}–{booking.to}
-                </p>
-                <p className="truncate text-xs text-muted-foreground">
-                  Going
-                  {activity.idealMemberCount
-                    ? ` (${booking.attendeeNames.length}/${activity.idealMemberCount})`
-                    : ` (${booking.attendeeNames.length})`}
-                  {booking.attendeeNames.length > 0
-                    ? `: ${booking.attendeeNames.join(", ")}`
-                    : ": no one else yet."}
-                </p>
-              </div>
-              <BookingDetailsDialog
-                activityId={activity.id}
-                booking={booking}
-                idealMemberCount={activity.idealMemberCount}
-                from="home"
-                trigger={
-                  <Button type="button" variant="outline" size="sm">
-                    Details
-                  </Button>
-                }
-              />
+        <>
+          <div className="flex flex-col gap-2 rounded-md border border-green-600/30 bg-green-600/10 p-3">
+            <div className="flex items-center gap-1.5 text-sm font-medium text-green-700 dark:text-green-400">
+              <CheckIcon className="size-4" />
+              Booked
             </div>
-          ))}
-        </div>
+            {activity.bookings.map((booking) => (
+              <div key={booking.id} className="flex items-center justify-between gap-3">
+                <div className="min-w-0 text-sm">
+                  <p>
+                    {formatBookingDate(booking.date)} · {booking.from}–{booking.to}
+                  </p>
+                  <p className="truncate text-xs text-muted-foreground">
+                    Going
+                    {activity.idealMemberCount
+                      ? ` (${booking.attendeeNames.length}/${activity.idealMemberCount})`
+                      : ` (${booking.attendeeNames.length})`}
+                    {booking.attendeeNames.length > 0
+                      ? `: ${booking.attendeeNames.join(", ")}`
+                      : ": no one else yet."}
+                  </p>
+                </div>
+                <BookingDetailsDialog
+                  activityId={activity.id}
+                  booking={booking}
+                  idealMemberCount={activity.idealMemberCount}
+                  from="home"
+                  trigger={
+                    <Button type="button" variant="outline" size="sm">
+                      Booking info
+                    </Button>
+                  }
+                />
+              </div>
+            ))}
+          </div>
+          <div className="flex justify-end">
+            <Button
+              render={<Link to="/activities/$activityId" params={{ activityId: activity.id }} />}
+              nativeButton={false}
+              variant="outline"
+              size="sm"
+            >
+              <InfoIcon data-icon="inline-start" />
+              Event details
+            </Button>
+          </div>
+        </>
       ) : (
         <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
           <div className="flex min-w-0 flex-col text-sm text-muted-foreground">
@@ -174,6 +189,7 @@ export const ActivityCard = ({ activity }: Props) => {
                   : activity.slots.length > 0
                     ? "Edit availability"
                     : "I'm in"}
+              <ChevronRightIcon data-icon="inline-end" />
             </Button>
             <Button
               render={
