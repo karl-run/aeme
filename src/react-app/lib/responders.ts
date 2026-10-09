@@ -64,6 +64,32 @@ export const respondersBySlot = (
   return bySlot;
 };
 
+/** Whether a cell has no room left for the viewer: everyone else already
+ * there, plus the viewer (and their +1), would go past the activity's max.
+ * Only meaningful for a cell the viewer hasn't picked — one they already
+ * hold stays theirs even if the max is lowered under them. */
+export const isSlotFull = (
+  people: RespondingUser[],
+  viewerId: string | undefined,
+  viewerPlusOne: boolean,
+  maxMemberCount: number | null | undefined,
+) =>
+  maxMemberCount != null &&
+  headcount(people.filter((person) => person.userId !== viewerId)) + (viewerPlusOne ? 2 : 1) >
+    maxMemberCount;
+
+/** Whether turning on a +1 would overfill any cell the viewer has picked —
+ * the guest needs a seat everywhere the viewer already has one. */
+export const guestWouldExceedMax = (
+  slots: ResponseSlot[],
+  responders: Record<string, RespondingUser[]>,
+  viewerId: string | undefined,
+  maxMemberCount: number | null | undefined,
+) =>
+  slots
+    .flatMap(keysForSlot)
+    .some((key) => isSlotFull(responders[key] ?? [], viewerId, true, maxMemberCount));
+
 /** How many of a slot's responders are bringing someone — shown as its own
  * `+N` badge rather than folded into the headline count, so "three of us, two
  * with guests" stays readable. */

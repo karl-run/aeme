@@ -16,7 +16,7 @@ import { Button } from "../components/ui/button.tsx";
 import { Checkbox } from "../components/ui/checkbox.tsx";
 import { Label } from "../components/ui/label.tsx";
 import { isRespondByPassed } from "../lib/activity-state.ts";
-import { respondersBySlot } from "../lib/responders.ts";
+import { guestWouldExceedMax, isSlotFull, respondersBySlot, slotKey } from "../lib/responders.ts";
 import { useActivitiesQuery } from "../queries/activities.ts";
 import { useUpsertAvailabilityMutation } from "../queries/availability.ts";
 import { useSessionQuery } from "../queries/session.ts";
@@ -90,6 +90,10 @@ const ActivityDetail = () => {
   const isOwner = session.data?.session?.userId === activity.createdBy;
   const closed = isRespondByPassed(activity);
   const responders = respondersBySlot(activity.responses);
+  const viewerId = session.data?.session?.userId;
+  // A guest needs a seat everywhere you've already got one.
+  const noRoomForGuest =
+    !plusOne && guestWouldExceedMax(slots, responders, viewerId, activity.maxMemberCount);
 
   // Toggling is the save — no separate confirm step. Debounced so a run of
   // taps (or a drag across hours) sends one request rather than one each.
@@ -133,8 +137,15 @@ const ActivityDetail = () => {
     );
   };
 
+  // A full day can't be picked, so "all days" means all the ones with room
+  // — or the button would never flip to "Clear all days".
+  const pickableDates = visibleDates.filter(
+    (date) =>
+      slots.some((s) => s.date === date) ||
+      !isSlotFull(responders[slotKey(date)] ?? [], viewerId, plusOne, activity.maxMemberCount),
+  );
   const allDaysPicked =
-    visibleDates.length > 0 && visibleDates.every((date) => slots.some((s) => s.date === date));
+    pickableDates.length > 0 && pickableDates.every((date) => slots.some((s) => s.date === date));
 
   const handleToggleAllDays = () => {
     if (allDaysPicked) {
@@ -144,7 +155,7 @@ const ActivityDetail = () => {
     }
 
     const already = new Set(slots.map((slot) => slot.date));
-    const added = visibleDates
+    const added = pickableDates
       .filter((date) => !already.has(date))
       .map((date) => ({ date }) satisfies ActivitySlot);
     handleChange([...slots, ...added]);
@@ -218,6 +229,7 @@ const ActivityDetail = () => {
               </Badge>
             )}
             {activity.idealMemberCount && <Badge>Aiming for {activity.idealMemberCount}</Badge>}
+            {activity.maxMemberCount && <Badge>Max {activity.maxMemberCount}</Badge>}
             {bookings.length > 0 && <Badge variant="success">{bookings.length} booked</Badge>}
           </div>
         </header>
@@ -246,10 +258,12 @@ const ActivityDetail = () => {
             onChange={handleChange}
             readOnly={closed}
             responders={responders}
-            viewerId={session.data?.session?.userId}
+            viewerId={viewerId}
             bookedSlots={activity.bookedSlots}
             bookings={activity.bookings}
             idealMemberCount={activity.idealMemberCount}
+            maxMemberCount={activity.maxMemberCount}
+            viewerPlusOne={plusOne}
             onVisibleDatesChange={handleVisibleDates}
           />
 
@@ -262,9 +276,15 @@ const ActivityDetail = () => {
                   <Checkbox
                     id="plus-one"
                     checked={plusOne}
+                    disabled={noRoomForGuest}
                     onCheckedChange={(checked) => handlePlusOne(checked === true)}
                   />
                   <Label htmlFor="plus-one">I'm bringing someone (+1)</Label>
+                  {noRoomForGuest && (
+                    <span className="text-xs text-muted-foreground">
+                      — no room for a guest in a slot you've picked
+                    </span>
+                  )}
                 </div>
               )}
 
@@ -273,8 +293,19 @@ const ActivityDetail = () => {
                   mean every hour of every day, which is never what anyone
                   means. */}
                 {activity.slotGranularity === "day" && visibleDates.length > 0 && (
-                  <Button type="button" variant="outline" onClick={handleToggleAllDays}>
-                    {allDaysPicked ? "Clear all days" : "I can do all days"}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    // Nothing on screen has room (and you hold none of it),
+                    // so there's nothing for the button to pick.
+                    disabled={pickableDates.length === 0}
+                    onClick={handleToggleAllDays}
+                  >
+                    {pickableDates.length === 0
+                      ? "All days are full"
+                      : allDaysPicked
+                        ? "Clear all days"
+                        : "I can do all days"}
                   </Button>
                 )}
                 {/* Persistent activities have nothing to decline — they just run. */}

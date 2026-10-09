@@ -12,7 +12,7 @@ import {
   listActivitiesForChannel,
   updateActivity,
 } from "../activities/activity.ts";
-import { upsertAvailability } from "../activities/availability.ts";
+import { upsertAvailability, wouldExceedMax } from "../activities/availability.ts";
 import {
   createBooking,
   deleteBooking,
@@ -53,6 +53,16 @@ const loginSchema = z.object({
     .transform((otp) => otp.toUpperCase()),
 });
 
+const idealWithinMax = (data: { idealMemberCount: number | null; maxMemberCount: number | null }) =>
+  data.idealMemberCount === null ||
+  data.maxMemberCount === null ||
+  data.idealMemberCount <= data.maxMemberCount;
+
+const idealWithinMaxError = {
+  message: "The ideal number of people can't be more than the maximum.",
+  path: ["idealMemberCount"],
+};
+
 const createActivitySchema = z
   .object({
     title: z.string().trim().min(1),
@@ -64,7 +74,9 @@ const createActivitySchema = z
     slotGranularity: z.enum(["day", "hourly"]),
     suggestedDates: z.array(z.iso.date()).min(1).nullable(),
     idealMemberCount: z.number().int().positive().nullable(),
+    maxMemberCount: z.number().int().positive().nullable(),
   })
+  .refine(idealWithinMax, idealWithinMaxError)
   .refine((data) => data.persistent || data.endTime !== null, {
     message: "End time is required unless the activity is persistent.",
     path: ["endTime"],
@@ -97,8 +109,10 @@ const updateActivitySchema = z
     title: z.string().trim().min(1),
     description: z.string().trim(),
     idealMemberCount: z.number().int().positive().nullable(),
+    maxMemberCount: z.number().int().positive().nullable(),
     suggestedDates: z.array(z.iso.date()).min(1).nullable(),
   })
+  .refine(idealWithinMax, idealWithinMaxError)
   .refine(
     (data) => {
       if (!data.suggestedDates) return true;
@@ -166,6 +180,15 @@ const createBookingSchema = z
     message: "A booking carries either a fixed location or free text, not both.",
     path: ["location"],
   });
+
+/** Only checked when a booking is saved: lowering an activity's max later
+ * leaves bookings already over it alone until someone next edits them, and
+ * that edit then has to bring the headcount down to the max. */
+const exceedsMax = (
+  maxMemberCount: number | null,
+  attendeeUserIds: string[],
+  guestNames: string[],
+) => maxMemberCount !== null && attendeeUserIds.length + guestNames.length > maxMemberCount;
 
 const createLocationSchema = z.object({
   name: z.string().trim().min(1),
@@ -271,6 +294,7 @@ export const apiRouter = new Hono<{ Bindings: Env }>()
       slotGranularity,
       suggestedDates,
       idealMemberCount,
+      maxMemberCount,
     } = c.req.valid("json");
     const activity = await createActivity(c.env, {
       channelId: session.channelId,
@@ -282,6 +306,7 @@ export const apiRouter = new Hono<{ Bindings: Env }>()
       slotGranularity,
       suggestedDates,
       idealMemberCount,
+      maxMemberCount,
     });
 
     return c.json({ activity });
@@ -308,12 +333,14 @@ export const apiRouter = new Hono<{ Bindings: Env }>()
       return c.json({ error: "Only the activity's creator can edit it." }, 403);
     }
 
-    const { title, description, idealMemberCount, suggestedDates } = c.req.valid("json");
+    const { title, description, idealMemberCount, maxMemberCount, suggestedDates } =
+      c.req.valid("json");
     const updated = await updateActivity(c.env, {
       activityId,
       title,
       description,
       idealMemberCount,
+      maxMemberCount,
       suggestedDates,
     });
 
@@ -371,6 +398,19 @@ export const apiRouter = new Hono<{ Bindings: Env }>()
       if (notSuggested) {
         return c.json({ error: "Slot date is not one of the suggested dates." }, 400);
       }
+    }
+
+    if (
+      activity.maxMemberCount !== null &&
+      (await wouldExceedMax(c.env, {
+        activityId,
+        userId: session.userId,
+        maxMemberCount: activity.maxMemberCount,
+        slots,
+        plusOne,
+      }))
+    ) {
+      return c.json({ error: "That time is already full." }, 409);
     }
 
     const availability = await upsertAvailability(c.env, {
@@ -446,6 +486,9 @@ export const apiRouter = new Hono<{ Bindings: Env }>()
     if (attendeeUserIds.some((userId) => !memberIds.has(userId))) {
       return c.json({ error: "Attendee is not a member of this channel." }, 400);
     }
+    if (exceedsMax(activity.maxMemberCount, attendeeUserIds, guestNames)) {
+      return c.json({ error: "Too many people for this activity." }, 400);
+    }
 
     // A fixed location has to be one of this activity's own — never another
     // activity's, and never an arbitrary id.
@@ -511,6 +554,9 @@ export const apiRouter = new Hono<{ Bindings: Env }>()
       const memberIds = new Set(members.map((member) => member.userId));
       if (attendeeUserIds.some((userId) => !memberIds.has(userId))) {
         return c.json({ error: "Attendee is not a member of this channel." }, 400);
+      }
+      if (exceedsMax(activity.maxMemberCount, attendeeUserIds, guestNames)) {
+        return c.json({ error: "Too many people for this activity." }, 400);
       }
 
       // A fixed location has to be one of this activity's own — never another

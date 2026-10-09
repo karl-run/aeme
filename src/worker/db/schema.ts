@@ -103,6 +103,10 @@ export const activitiesTable = sqliteTable(
      * (e.g. shown as "5/8 going"), never enforced as a cap on responses or
      * booking attendees. */
     idealMemberCount: integer("ideal_member_count"),
+    /** Hard cap on headcount, unlike `idealMemberCount`: no day/hour can be
+     * picked by more people (+1s included), and no booking can include more
+     * (members plus named guests). */
+    maxMemberCount: integer("max_member_count"),
     /** Slack message timestamp of the suggestion announcement for a
      * non-persistent activity (see `activity_bookings.slack_message_ts` for
      * the analogous field on a booking), so it can be edited in place
@@ -133,6 +137,14 @@ export const activitiesTable = sqliteTable(
     check(
       "activities_ideal_member_count_positive",
       sql`${t.idealMemberCount} IS NULL OR ${t.idealMemberCount} > 0`,
+    ),
+    check(
+      "activities_max_member_count_positive",
+      sql`${t.maxMemberCount} IS NULL OR ${t.maxMemberCount} > 0`,
+    ),
+    check(
+      "activities_ideal_within_max",
+      sql`${t.idealMemberCount} IS NULL OR ${t.maxMemberCount} IS NULL OR ${t.idealMemberCount} <= ${t.maxMemberCount}`,
     ),
   ],
 );

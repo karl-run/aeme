@@ -3,6 +3,7 @@ import { CalendarIcon } from "lucide-react";
 import { type FormEvent, useState } from "react";
 
 import { useCreateActivityMutation } from "../queries/activities.ts";
+import { MemberCountFields } from "./MemberCountFields.tsx";
 import { Button } from "./ui/button.tsx";
 import { Calendar } from "./ui/calendar.tsx";
 import { Input } from "./ui/input.tsx";
@@ -42,6 +43,7 @@ export const AddActivityDialog = () => {
   const [datesOpen, setDatesOpen] = useState(false);
   const [endDateOpen, setEndDateOpen] = useState(false);
   const [idealMemberCount, setIdealMemberCount] = useState("");
+  const [maxMemberCount, setMaxMemberCount] = useState("");
   // Set on the first submit attempt, so the deadline error only appears once
   // you've actually tried — not while you're still filling the form in.
   const [submitAttempted, setSubmitAttempted] = useState(false);
@@ -61,6 +63,7 @@ export const AddActivityDialog = () => {
     setSlotGranularity("day");
     setSuggestedDates([]);
     setIdealMemberCount("");
+    setMaxMemberCount("");
     setSubmitAttempted(false);
   };
 
@@ -96,6 +99,7 @@ export const AddActivityDialog = () => {
         slotGranularity,
         suggestedDates: !persistent && suggestedDates.length > 0 ? suggestedDates : null,
         idealMemberCount: idealMemberCount ? Number(idealMemberCount) : null,
+        maxMemberCount: maxMemberCount ? Number(maxMemberCount) : null,
       },
       {
         onSuccess: () => {
@@ -165,20 +169,13 @@ export const AddActivityDialog = () => {
             </div>
           </div>
 
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="activity-ideal-member-count">Ideal number of people (optional)</Label>
-            <Input
-              id="activity-ideal-member-count"
-              type="number"
-              min={1}
-              value={idealMemberCount}
-              onChange={(e) => setIdealMemberCount(e.target.value)}
-              placeholder="e.g. 8"
-            />
-            <p className="text-xs text-muted-foreground">
-              Just shown alongside the count — doesn't limit who can join.
-            </p>
-          </div>
+          <MemberCountFields
+            idPrefix="activity"
+            ideal={idealMemberCount}
+            max={maxMemberCount}
+            onIdealChange={setIdealMemberCount}
+            onMaxChange={setMaxMemberCount}
+          />
 
           <Tabs
             value={persistent ? "ongoing" : "one-off"}

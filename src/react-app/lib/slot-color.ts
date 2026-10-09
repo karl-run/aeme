@@ -34,6 +34,12 @@ export const mineWithOthersClass = (count: number) =>
       MINE_WITH_OTHERS_TIERS[0].classes)
     : undefined;
 
+/** A slot the viewer can't pick because it's at the activity's max. Replaces
+ * the slot's usual fill rather than layering on it: "can't pick this" is the
+ * one thing worth reading at a glance, and who's in it is on hover. */
+export const fullSlotClass =
+  "cursor-not-allowed border-solid border-muted-foreground/40 bg-muted bg-full-stripes text-muted-foreground";
+
 /** Overlay marking a day-mode slot (a whole cell) that has an actual
  * booking — a thick dotted green outline, layered on top of (not replacing)
  * the cell's own fill/border. */
