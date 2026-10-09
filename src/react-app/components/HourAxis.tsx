@@ -15,6 +15,12 @@ export const HourAxis = ({ hours, cellPx }: Props) => {
 
   return (
     <div className="relative" style={{ height: hours.length * cellPx }}>
+      {/* The labels are absolutely positioned and so take up no width; this
+          invisible one does, so an `auto`-sized grid column doesn't collapse
+          to nothing and clip them. */}
+      <span aria-hidden className="invisible block pr-2 text-xs leading-none">
+        00:00
+      </span>
       {lines.map((hour, i) => (
         <span
           key={hour}
