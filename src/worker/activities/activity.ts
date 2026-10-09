@@ -224,6 +224,7 @@ export const createActivity = async (
     slotGranularity: "day" | "hourly";
     suggestedDates: string[] | null;
     idealMemberCount: number | null;
+    maxMemberCount: number | null;
   },
 ) => {
   const db = createDb(env);
@@ -241,6 +242,7 @@ export const createActivity = async (
       slotGranularity: params.slotGranularity,
       suggestedDates: params.persistent ? null : params.suggestedDates,
       idealMemberCount: params.idealMemberCount,
+      maxMemberCount: params.maxMemberCount,
       archived: false,
       created: new Date().toISOString(),
     })
@@ -268,6 +270,7 @@ export const updateActivity = async (
     title: string;
     description: string;
     idealMemberCount: number | null;
+    maxMemberCount: number | null;
     suggestedDates: string[] | null;
   },
 ) => {
@@ -285,6 +288,7 @@ export const updateActivity = async (
       title: params.title,
       description: params.description,
       idealMemberCount: params.idealMemberCount,
+      maxMemberCount: params.maxMemberCount,
       suggestedDates: existing.persistent ? null : params.suggestedDates,
     })
     .where(eq(activitiesTable.id, params.activityId));
@@ -316,6 +320,7 @@ export const listActivitiesForChannel = async (env: Env, channelId: string, user
       slotGranularity: activitiesTable.slotGranularity,
       suggestedDates: activitiesTable.suggestedDates,
       idealMemberCount: activitiesTable.idealMemberCount,
+      maxMemberCount: activitiesTable.maxMemberCount,
       created: activitiesTable.created,
       slots: activityAvailabilityTable.slots,
       declined: activityAvailabilityTable.declined,

@@ -3,6 +3,7 @@ import { type FormEvent, type ReactElement, useState } from "react";
 
 import { useUpdateActivityMutation } from "../queries/activities.ts";
 import type { ActivityWithAvailability } from "../queries/activities.ts";
+import { MemberCountFields } from "./MemberCountFields.tsx";
 import { Button } from "./ui/button.tsx";
 import { Calendar } from "./ui/calendar.tsx";
 import { Input } from "./ui/input.tsx";
@@ -35,7 +36,7 @@ type Props = {
   trigger: ReactElement;
 };
 
-/** Lets the activity's creator edit title/description/ideal headcount, plus
+/** Lets the activity's creator edit title/description/headcounts, plus
  * (one-off only) the suggested dates — never the type, granularity, or
  * deadline, which are fixed at creation. */
 export const EditActivityDialog = ({ activity, trigger }: Props) => {
@@ -45,6 +46,7 @@ export const EditActivityDialog = ({ activity, trigger }: Props) => {
   const [idealMemberCount, setIdealMemberCount] = useState(
     activity.idealMemberCount?.toString() ?? "",
   );
+  const [maxMemberCount, setMaxMemberCount] = useState(activity.maxMemberCount?.toString() ?? "");
   const [suggestedDates, setSuggestedDates] = useState<string[]>(activity.suggestedDates ?? []);
   const [datesOpen, setDatesOpen] = useState(false);
 
@@ -54,6 +56,7 @@ export const EditActivityDialog = ({ activity, trigger }: Props) => {
     setTitle(activity.title);
     setDescription(activity.description);
     setIdealMemberCount(activity.idealMemberCount?.toString() ?? "");
+    setMaxMemberCount(activity.maxMemberCount?.toString() ?? "");
     setSuggestedDates(activity.suggestedDates ?? []);
   };
 
@@ -66,6 +69,7 @@ export const EditActivityDialog = ({ activity, trigger }: Props) => {
         title,
         description,
         idealMemberCount: idealMemberCount ? Number(idealMemberCount) : null,
+        maxMemberCount: maxMemberCount ? Number(maxMemberCount) : null,
         suggestedDates: !activity.persistent && suggestedDates.length > 0 ? suggestedDates : null,
       },
       { onSuccess: () => setOpen(false) },
@@ -110,19 +114,13 @@ export const EditActivityDialog = ({ activity, trigger }: Props) => {
             />
           </div>
 
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="edit-activity-ideal-member-count">
-              Ideal number of people (optional)
-            </Label>
-            <Input
-              id="edit-activity-ideal-member-count"
-              type="number"
-              min={1}
-              value={idealMemberCount}
-              onChange={(e) => setIdealMemberCount(e.target.value)}
-              placeholder="e.g. 8"
-            />
-          </div>
+          <MemberCountFields
+            idPrefix="edit-activity"
+            ideal={idealMemberCount}
+            max={maxMemberCount}
+            onIdealChange={setIdealMemberCount}
+            onMaxChange={setMaxMemberCount}
+          />
 
           {!activity.persistent && (
             <div className="flex flex-col gap-1.5">

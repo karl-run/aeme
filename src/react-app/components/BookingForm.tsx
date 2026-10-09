@@ -157,7 +157,13 @@ export const BookingForm = ({ activity, booking, initialDate, onDone, onCancel }
     addGuestName();
   };
 
-  const valid = bookingDate !== "" && from !== "" && to !== "" && from < to;
+  // Members and named guests both count toward the activity's max, the same
+  // headcount the server checks.
+  const headcount = attendeeUserIds.length + guestNames.length;
+  const excess = activity.maxMemberCount === null ? 0 : headcount - activity.maxMemberCount;
+  const overMax = excess > 0;
+
+  const valid = bookingDate !== "" && from !== "" && to !== "" && from < to && !overMax;
 
   const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -340,13 +346,25 @@ export const BookingForm = ({ activity, booking, initialDate, onDone, onCancel }
 
       <div className="flex flex-col gap-2 border-t border-border pt-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <Label>Who's joining?</Label>
+          <Label>
+            Who's joining?
+            {activity.maxMemberCount !== null && (
+              <span className={overMax ? "text-destructive" : "font-normal text-muted-foreground"}>
+                {headcount}/{activity.maxMemberCount} max
+              </span>
+            )}
+          </Label>
           {unselectedAvailable.length > 0 && (
             <Button type="button" variant="outline" size="xs" onClick={addAllAvailable}>
               Add everyone free then ({unselectedAvailable.length})
             </Button>
           )}
         </div>
+        {overMax && (
+          <p className="text-sm text-destructive" aria-live="polite">
+            This activity takes at most {activity.maxMemberCount} people — remove {excess} to save.
+          </p>
+        )}
         {bookingDate !== "" && availableIds.size === 0 && (
           <p className="text-xs text-muted-foreground">No one has said this slot works for them.</p>
         )}

@@ -36,6 +36,7 @@ export const useCreateActivityMutation = () => {
       slotGranularity: "day" | "hourly";
       suggestedDates: string[] | null;
       idealMemberCount: number | null;
+      maxMemberCount: number | null;
     }) => {
       const res = await client.activities.$post({ json: params });
       if (!res.ok) throw new Error("Failed to create activity.");
@@ -56,6 +57,7 @@ export const useUpdateActivityMutation = () => {
       title: string;
       description: string;
       idealMemberCount: number | null;
+      maxMemberCount: number | null;
       suggestedDates: string[] | null;
     }) => {
       const res = await client.activities[":id"].$put({
@@ -64,6 +66,7 @@ export const useUpdateActivityMutation = () => {
           title: params.title,
           description: params.description,
           idealMemberCount: params.idealMemberCount,
+          maxMemberCount: params.maxMemberCount,
           suggestedDates: params.suggestedDates,
         },
       });

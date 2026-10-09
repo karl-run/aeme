@@ -6,10 +6,11 @@ import { useEffect, useRef, useState } from "react";
 import type { ActivitySlot } from "../../worker/db/schema.ts";
 import { bookingOverlayPercent, bookingsForDay } from "../lib/booking-slots.ts";
 import type { RespondingUser } from "../lib/responders.ts";
-import { guestCount, responderLabel, slotKey } from "../lib/responders.ts";
+import { guestCount, isSlotFull, responderLabel, slotKey } from "../lib/responders.ts";
 import {
   bookedSlotOverlayClass,
   bookingOverlayClass,
+  fullSlotClass,
   mineWithOthersClass,
   othersSlotClass,
   othersSlotFillClass,
@@ -18,6 +19,7 @@ import { useTapOrDrag } from "../lib/tap-or-drag.ts";
 import type { ActivityWithAvailability } from "../queries/activities.ts";
 import { BookingInfoPopover } from "./BookingInfoPopover.tsx";
 import { HourAxis } from "./HourAxis.tsx";
+import { MaxMemberCountNote } from "./MaxMemberCountNote.tsx";
 import { Button } from "./ui/button.tsx";
 
 const HOURS = Array.from({ length: 16 }, (_, i) => i + 8); // 08:00–23:00, each cell covers one hour
@@ -73,6 +75,10 @@ type Props = {
   bookings?: ActivityWithAvailability["bookings"];
   /** Advisory headcount, shown alongside a booking's attendee count. */
   idealMemberCount?: number | null;
+  /** Cells that would go past this with the viewer added can't be picked. */
+  maxMemberCount?: number | null;
+  /** Whether the viewer is bringing a +1, who needs a seat too. */
+  viewerPlusOne?: boolean;
   /** Called with the dates currently on screen, so the host can act on them
    * (e.g. select them all). Must be referentially stable. */
   onVisibleDatesChange?: (dates: string[]) => void;
@@ -90,6 +96,8 @@ export const AvailabilityGrid = ({
   bookedSlots = {},
   bookings = [],
   idealMemberCount,
+  maxMemberCount,
+  viewerPlusOne = false,
   onVisibleDatesChange,
 }: Props) => {
   const today = startOfDay(new Date());
@@ -199,6 +207,10 @@ export const AvailabilityGrid = ({
         </div>
       )}
 
+      {maxMemberCount != null && (
+        <MaxMemberCountNote maxMemberCount={maxMemberCount} granularity={granularity} />
+      )}
+
       {granularity === "day" ? (
         <div className="flex flex-wrap gap-2">
           {days.map((d) => {
@@ -211,26 +223,36 @@ export const AvailabilityGrid = ({
             // shouldn't look as busy as one three of you picked.
             const others = dayResponders.filter((person) => person.userId !== viewerId).length;
             const booked = bookedSlots[dateStr] ?? false;
+            const full =
+              !selected && isSlotFull(dayResponders, viewerId, viewerPlusOne, maxMemberCount);
             return (
               <div key={dateStr} className="group relative hover:z-10">
                 <button
                   type="button"
-                  disabled={readOnly}
+                  disabled={readOnly || full}
                   onClick={() => toggleDay(dateStr)}
                   title={namesTitle(dayResponders)}
                   className={cn(
-                    "relative flex flex-col items-center rounded-md border border-input px-3 py-2 text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-60",
-                    selected
-                      ? cn(
-                          "border-primary bg-primary text-primary-foreground",
-                          mineWithOthersClass(others),
-                        )
-                      : others > 0
-                        ? othersSlotClass(others)
-                        : "hover:bg-muted",
+                    "relative flex flex-col items-center rounded-md border border-input px-3 py-2 text-sm transition-colors disabled:cursor-not-allowed",
+                    full
+                      ? fullSlotClass
+                      : selected
+                        ? cn(
+                            "border-primary bg-primary text-primary-foreground",
+                            mineWithOthersClass(others),
+                          )
+                        : others > 0
+                          ? othersSlotClass(others)
+                          : "hover:bg-muted",
+                    readOnly && "disabled:opacity-60",
                   )}
                 >
                   {formatDayLabel(d)}
+                  {full && (
+                    <span className="text-[10px] leading-none font-semibold tracking-wide uppercase">
+                      Full
+                    </span>
+                  )}
                   {selected && (
                     <span
                       aria-hidden
@@ -325,38 +347,54 @@ export const AvailabilityGrid = ({
                   const others = hourResponders.filter(
                     (person) => person.userId !== viewerId,
                   ).length;
+                  const full =
+                    !selected &&
+                    isSlotFull(hourResponders, viewerId, viewerPlusOne, maxMemberCount);
                   return (
                     <div
                       key={hour}
                       title={namesTitle(hourResponders)}
                       onPointerDown={(e) => {
-                        if (readOnly || !beginsDrag(e)) return;
+                        if (readOnly || full || !beginsDrag(e)) return;
                         const next = !selected;
                         dragValueRef.current = next;
                         setHour(dateStr, hour, next);
                       }}
                       onPointerEnter={() => {
                         if (readOnly || dragValueRef.current === null) return;
+                        // A drag that's adding hours skips the full ones
+                        // rather than stopping at them.
+                        if (full && dragValueRef.current) return;
                         setHour(dateStr, hour, dragValueRef.current);
                       }}
                       onClick={(e) => {
-                        if (readOnly || !handlesClick(e)) return;
+                        if (readOnly || full || !handlesClick(e)) return;
                         setHour(dateStr, hour, !selected);
                       }}
                       className={cn(
                         "flex h-6 items-center justify-center border border-border/50",
-                        readOnly ? "cursor-not-allowed" : "cursor-pointer hover:bg-muted",
-                        selected
-                          ? cn("bg-primary", mineWithOthersClass(others))
-                          : others > 0 && othersSlotFillClass(others),
+                        full
+                          ? fullSlotClass
+                          : cn(
+                              readOnly ? "cursor-not-allowed" : "cursor-pointer hover:bg-muted",
+                              selected
+                                ? cn("bg-primary", mineWithOthersClass(others))
+                                : others > 0 && othersSlotFillClass(others),
+                            ),
                       )}
                     >
                       {/* Only worth a number once it's more than one person:
                           a lone pick is already shown by the cell's fill. */}
-                      {count >= 2 && (
-                        <span className="text-[9px] font-medium text-primary-foreground">
-                          {count}
+                      {full ? (
+                        <span className="text-[9px] font-semibold tracking-wide uppercase">
+                          Full
                         </span>
+                      ) : (
+                        count >= 2 && (
+                          <span className="text-[9px] font-medium text-primary-foreground">
+                            {count}
+                          </span>
+                        )
                       )}
                     </div>
                   );
