@@ -12,6 +12,7 @@ import {
   bookingOverlayClass,
   mineWithOthersClass,
   othersSlotClass,
+  othersSlotFillClass,
 } from "../lib/slot-color.ts";
 import { useTapOrDrag } from "../lib/tap-or-drag.ts";
 import type { ActivityWithAvailability } from "../queries/activities.ts";
@@ -347,7 +348,7 @@ export const AvailabilityGrid = ({
                         readOnly ? "cursor-not-allowed" : "cursor-pointer hover:bg-muted",
                         selected
                           ? cn("bg-primary", mineWithOthersClass(others))
-                          : others > 0 && othersSlotClass(others),
+                          : others > 0 && othersSlotFillClass(others),
                       )}
                     >
                       {/* Only worth a number once it's more than one person:

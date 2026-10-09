@@ -317,6 +317,12 @@ const ActivityPickerCard = ({ activity, days }: CardProps) => {
 
             {days.map((d) => {
               const dateStr = toDateStr(d);
+              const selectedHours = hourSetForDate(slots, dateStr);
+              const othersAt = (hour: number) =>
+                (responders[slotKey(dateStr, hour)] ?? []).filter(
+                  (person) => person.userId !== viewerId,
+                ).length;
+              const isFilled = (hour: number) => selectedHours.has(hour) || othersAt(hour) > 0;
               return (
                 <div
                   key={dateStr}
@@ -324,12 +330,14 @@ const ActivityPickerCard = ({ activity, days }: CardProps) => {
                   style={{ height: HOURS.length * HOUR_CELL_PX }}
                 >
                   {HOURS.map((hour) => {
-                    const selected = hourSetForDate(slots, dateStr).has(hour);
+                    const selected = selectedHours.has(hour);
                     const hourResponders = responders[slotKey(dateStr, hour)] ?? [];
                     const count = hourResponders.length;
-                    const others = hourResponders.filter(
-                      (person) => person.userId !== viewerId,
-                    ).length;
+                    const others = othersAt(hour);
+                    // A filled cell's border matches its fill, so a run of
+                    // filled hours would merge into one block — draw the hour
+                    // line between them so you can still count the hours.
+                    const continuesRun = isFilled(hour) && isFilled(hour - 1);
                     return (
                       <div
                         key={hour}
@@ -355,6 +363,7 @@ const ActivityPickerCard = ({ activity, days }: CardProps) => {
                             : others > 0
                               ? othersSlotClass(others)
                               : "border-dashed border-muted-foreground/30 hover:border-primary/60 hover:bg-muted",
+                          continuesRun && "border-t-background/40",
                         )}
                       >
                         {/* Only worth a number once it's more than one
