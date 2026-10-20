@@ -11,7 +11,7 @@ import { bookedSlotOverlayClass, bookingOverlayClass, fullSlotClass } from "../l
 import { useTapOrDrag } from "../lib/tap-or-drag.ts";
 import type { ActivityWithAvailability } from "../queries/activities.ts";
 import { BookingInfoPopover } from "./BookingInfoPopover.tsx";
-import { HourAxis } from "./HourAxis.tsx";
+import { HourAxis, hourRowLineClass } from "./HourAxis.tsx";
 import { MaxMemberCountNote } from "./MaxMemberCountNote.tsx";
 import { PersonSegments } from "./PersonSegments.tsx";
 import { Button } from "./ui/button.tsx";
@@ -166,6 +166,10 @@ export const AvailabilityGrid = ({
   useEffect(() => {
     onVisibleDatesChange?.(visibleKey === "" ? [] : visibleKey.split("|"));
   }, [visibleKey, onVisibleDatesChange]);
+
+  // The hour row under the pointer, picked out in the grid and on the axis so
+  // it's easy to tell which hour a cell is.
+  const [hoveredHour, setHoveredHour] = useState<number | null>(null);
 
   const dragValueRef = useRef<boolean | null>(null);
   const { beginsDrag, handlesClick } = useTapOrDrag();
@@ -329,7 +333,7 @@ export const AvailabilityGrid = ({
             );
           })}
 
-          <HourAxis hours={HOURS} cellPx={HOUR_CELL_PX} />
+          <HourAxis hours={HOURS} cellPx={HOUR_CELL_PX} highlightHour={hoveredHour} />
 
           {days.map((d) => {
             const dateStr = toDateStr(d);
@@ -356,7 +360,9 @@ export const AvailabilityGrid = ({
                         dragValueRef.current = next;
                         setHour(dateStr, hour, next);
                       }}
+                      onPointerLeave={() => setHoveredHour(null)}
                       onPointerEnter={() => {
+                        setHoveredHour(hour);
                         if (readOnly || dragValueRef.current === null) return;
                         // A drag that's adding hours skips the full ones
                         // rather than stopping at them.
@@ -376,6 +382,7 @@ export const AvailabilityGrid = ({
                               !readOnly &&
                                 (people.length > 0 ? "hover:brightness-110" : "hover:bg-muted"),
                             ),
+                        hourRowLineClass(hour, hoveredHour),
                       )}
                     >
                       {full ? (
