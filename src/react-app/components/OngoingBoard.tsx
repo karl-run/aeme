@@ -21,7 +21,7 @@ import { useUpsertAvailabilityMutation } from "../queries/availability.ts";
 import { useViewer } from "../queries/session.ts";
 import { BookingInfoPopover } from "./BookingInfoPopover.tsx";
 import { EditActivityDialog } from "./EditActivityDialog.tsx";
-import { HourAxis } from "./HourAxis.tsx";
+import { HourAxis, hourRowLineClass } from "./HourAxis.tsx";
 import { MaxMemberCountNote } from "./MaxMemberCountNote.tsx";
 import { PersonSegments } from "./PersonSegments.tsx";
 import { Button } from "./ui/button.tsx";
@@ -108,6 +108,10 @@ const ActivityPickerCard = ({ activity, days }: CardProps) => {
   const viewerId = viewer?.userId;
   const isOwner = viewerId === activity.createdBy;
   const responders = respondersBySlot(activity.responses);
+
+  // The hour row under the pointer, picked out in the grid and on the axis so
+  // it's easy to tell which hour a cell is.
+  const [hoveredHour, setHoveredHour] = useState<number | null>(null);
 
   const dirtyRef = useRef(false);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -321,7 +325,7 @@ const ActivityPickerCard = ({ activity, days }: CardProps) => {
               gridTemplateColumns: `${LABEL_COLUMN_PX}px repeat(${days.length}, minmax(${DAY_COLUMN_MIN_PX}px, ${DAY_COLUMN_MAX_PX}px))`,
             }}
           >
-            <HourAxis hours={HOURS} cellPx={HOUR_CELL_PX} />
+            <HourAxis hours={HOURS} cellPx={HOUR_CELL_PX} highlightHour={hoveredHour} />
 
             {days.map((d) => {
               const dateStr = toDateStr(d);
@@ -349,7 +353,9 @@ const ActivityPickerCard = ({ activity, days }: CardProps) => {
                           dragValueRef.current = next;
                           setHour(dateStr, hour, next);
                         }}
+                        onPointerLeave={() => setHoveredHour(null)}
                         onPointerEnter={() => {
+                          setHoveredHour(hour);
                           if (dragValueRef.current === null) return;
                           // A drag that's adding hours skips the full ones
                           // rather than stopping at them.
@@ -361,7 +367,7 @@ const ActivityPickerCard = ({ activity, days }: CardProps) => {
                           setHour(dateStr, hour, !selected);
                         }}
                         className={cn(
-                          "group relative flex h-6 items-center justify-center border transition-colors",
+                          "group relative flex h-6 items-center justify-center border border-dashed transition-colors",
                           full
                             ? fullSlotClass
                             : cn(
@@ -371,8 +377,9 @@ const ActivityPickerCard = ({ activity, days }: CardProps) => {
                                 // them and you can still count the hours.
                                 people.length > 0
                                   ? "border-transparent hover:brightness-110"
-                                  : "border-dashed border-muted-foreground/30 hover:border-primary/60 hover:bg-muted",
+                                  : "border-muted-foreground/30 hover:bg-muted",
                               ),
+                          hourRowLineClass(hour, hoveredHour),
                         )}
                       >
                         {full ? (
