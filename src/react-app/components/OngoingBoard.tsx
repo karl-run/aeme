@@ -19,6 +19,7 @@ import { useTapOrDrag } from "../lib/tap-or-drag.ts";
 import type { ActivityWithAvailability } from "../queries/activities.ts";
 import { useUpsertAvailabilityMutation } from "../queries/availability.ts";
 import { useViewer } from "../queries/session.ts";
+import { BookableLocationLinks } from "./BookableLocationLinks.tsx";
 import { BookingInfoPopover } from "./BookingInfoPopover.tsx";
 import { EditActivityDialog } from "./EditActivityDialog.tsx";
 import { HourAxis, hourRowLineClass } from "./HourAxis.tsx";
@@ -211,11 +212,16 @@ const ActivityPickerCard = ({ activity, days }: CardProps) => {
             />
           )}
         </div>
-        <UpcomingBookings
-          activityId={activity.id}
-          bookings={activity.bookings}
-          idealMemberCount={activity.idealMemberCount}
-        />
+        {/* The card's right-hand column: what's booked, and under it the
+            shortcuts for actually reserving the place. */}
+        <div className="flex min-w-0 shrink flex-col items-end gap-1.5">
+          <UpcomingBookings
+            activityId={activity.id}
+            bookings={activity.bookings}
+            idealMemberCount={activity.idealMemberCount}
+          />
+          <BookableLocationLinks locations={activity.locations} />
+        </div>
       </div>
 
       <div
