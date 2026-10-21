@@ -8,9 +8,9 @@ type Props = {
 
 /** Straight-out links to the places' own reservation pages, for the activity's
  * locations that have one — booking here says who's coming, the court still
- * has to be booked with the venue. Kept to a line of small text under the
- * upcoming bookings: a shortcut, not a section of its own. Renders nothing
- * when no location has a booking URL. */
+ * has to be booked with the venue. Sits along the foot of the board card,
+ * under the grid, as a line of small text: a shortcut, not a section of its
+ * own. Renders nothing when no location has a booking URL. */
 export const BookableLocationLinks = ({ locations }: Props) => {
   // flatMap rather than filter, so `bookingUrl` narrows to a string.
   const bookable = locations.flatMap((location) =>

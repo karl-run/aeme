@@ -28,7 +28,7 @@ export const UpcomingBookings = ({ activityId, bookings, idealMemberCount }: Pro
   if (upcoming.length === 0) return null;
 
   return (
-    <div className="flex max-w-full min-w-0 shrink items-center gap-1.5 overflow-x-auto">
+    <div className="flex min-w-0 shrink items-center gap-1.5 overflow-x-auto">
       {upcoming.map((booking) => (
         <BookingDetailsDialog
           key={booking.id}

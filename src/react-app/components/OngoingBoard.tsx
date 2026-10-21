@@ -212,16 +212,11 @@ const ActivityPickerCard = ({ activity, days }: CardProps) => {
             />
           )}
         </div>
-        {/* The card's right-hand column: what's booked, and under it the
-            shortcuts for actually reserving the place. */}
-        <div className="flex min-w-0 shrink flex-col items-end gap-1.5">
-          <UpcomingBookings
-            activityId={activity.id}
-            bookings={activity.bookings}
-            idealMemberCount={activity.idealMemberCount}
-          />
-          <BookableLocationLinks locations={activity.locations} />
-        </div>
+        <UpcomingBookings
+          activityId={activity.id}
+          bookings={activity.bookings}
+          idealMemberCount={activity.idealMemberCount}
+        />
       </div>
 
       <div
@@ -424,6 +419,10 @@ const ActivityPickerCard = ({ activity, days }: CardProps) => {
           </div>
         )}
       </div>
+
+      {/* Under the grid rather than up by the title: reserving the place is
+          what comes after picking a time, not before it. */}
+      <BookableLocationLinks locations={activity.locations} />
     </div>
   );
 };
