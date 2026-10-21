@@ -343,16 +343,6 @@ const ActivityDetail = () => {
           )}
         </Section>
 
-        <Section title="Who can make it" description="Everyone's answers, day by day.">
-          <ResponderBreakdown activity={activity} />
-        </Section>
-
-        {activity.persistent && (
-          <Section title="Locations" description="Places this happens, ready to pick when booking.">
-            <ActivityLocations activity={activity} canEdit={isOwner} />
-          </Section>
-        )}
-
         <Section
           title="Bookings"
           description={
@@ -404,6 +394,17 @@ const ActivityDetail = () => {
             idealMemberCount={activity.idealMemberCount}
           />
         </Section>
+
+        <Section title="Who can make it" description="Everyone's answers, day by day.">
+          <ResponderBreakdown activity={activity} />
+        </Section>
+
+        {activity.persistent && (
+          <Section title="Locations" description="Places this happens, ready to pick when booking.">
+            <ActivityLocations activity={activity} canEdit={isOwner} />
+          </Section>
+        )}
+
         {isOwner && (
           <Section
             title="Delete activity"
