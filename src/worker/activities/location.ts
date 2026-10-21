@@ -11,6 +11,8 @@ export const listActivityLocations = async (env: Env, activityId: string) => {
       id: activityLocationsTable.id,
       name: activityLocationsTable.name,
       mapsUrl: activityLocationsTable.mapsUrl,
+      bookingUrl: activityLocationsTable.bookingUrl,
+      mapsPlaceName: activityLocationsTable.mapsPlaceName,
     })
     .from(activityLocationsTable)
     .where(
@@ -39,7 +41,13 @@ export const getActivityLocationById = async (env: Env, id: string) => {
  * turns that into a 400. */
 export const createActivityLocation = async (
   env: Env,
-  params: { activityId: string; name: string; mapsUrl: string },
+  params: {
+    activityId: string;
+    name: string;
+    mapsUrl: string;
+    bookingUrl: string | null;
+    mapsPlaceName: string | null;
+  },
 ) => {
   const db = createDb(env);
 
@@ -50,9 +58,41 @@ export const createActivityLocation = async (
       activityId: params.activityId,
       name: params.name,
       mapsUrl: params.mapsUrl,
+      bookingUrl: params.bookingUrl,
+      mapsPlaceName: params.mapsPlaceName,
       archived: false,
       created: new Date().toISOString(),
     })
+    .returning();
+
+  return location;
+};
+
+/** Same guards as creating one (router-enforced), and the same name clash to
+ * watch for — renaming onto a live sibling's name trips the partial unique
+ * index. Edits the row in place rather than archiving and re-adding, so
+ * bookings pointing at it follow the correction. */
+export const updateActivityLocation = async (
+  env: Env,
+  id: string,
+  params: {
+    name: string;
+    mapsUrl: string;
+    bookingUrl: string | null;
+    mapsPlaceName: string | null;
+  },
+) => {
+  const db = createDb(env);
+
+  const [location] = await db
+    .update(activityLocationsTable)
+    .set({
+      name: params.name,
+      mapsUrl: params.mapsUrl,
+      bookingUrl: params.bookingUrl,
+      mapsPlaceName: params.mapsPlaceName,
+    })
+    .where(eq(activityLocationsTable.id, id))
     .returning();
 
   return location;

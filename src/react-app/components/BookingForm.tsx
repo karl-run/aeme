@@ -1,6 +1,6 @@
 import { cn } from "cn";
 import { format } from "date-fns";
-import { CalendarIcon, MapPinIcon, XIcon } from "lucide-react";
+import { CalendarIcon, MapPinIcon, TicketIcon, XIcon } from "lucide-react";
 import { type FormEvent, type KeyboardEvent, useState } from "react";
 
 import { availableForBooking, offersOnDate } from "../lib/responders.ts";
@@ -34,7 +34,7 @@ export type EditableBooking = {
   /** The booking's fixed location, carried in full rather than by id: it may
    * since have been archived, in which case the activity no longer lists it
    * and the form would otherwise show no location control at all. */
-  fixedLocation: { id: string; name: string; mapsUrl: string } | null;
+  fixedLocation: { id: string; name: string; mapsUrl: string; bookingUrl: string | null } | null;
   attendeeUserIds: string[];
   guestNames: string[];
 };
@@ -315,10 +315,27 @@ export const BookingForm = ({ activity, booking, initialDate, onDone, onCancel }
                     rel="noreferrer"
                     aria-label={`Open ${fixed.name} in Google Maps`}
                     title={fixed.mapsUrl}
-                    className="py-1.5 pr-2.5 pl-1 opacity-60 hover:opacity-100"
+                    className={cn(
+                      "py-1.5 pl-1 opacity-60 hover:opacity-100",
+                      fixed.bookingUrl ? "pr-1" : "pr-2.5",
+                    )}
                   >
                     <MapPinIcon className="size-3.5" />
                   </a>
+                  {/* The place's own reservation page: booking here says who's
+                      coming, but the court still has to be booked with them. */}
+                  {fixed.bookingUrl && (
+                    <a
+                      href={fixed.bookingUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      aria-label={`Open the booking page for ${fixed.name}`}
+                      title={fixed.bookingUrl}
+                      className="py-1.5 pr-2.5 pl-1 opacity-60 hover:opacity-100"
+                    >
+                      <TicketIcon className="size-3.5" />
+                    </a>
+                  )}
                 </span>
               );
             })}

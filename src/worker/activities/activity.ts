@@ -226,6 +226,19 @@ export type ActivityResponse = {
   plusOne: boolean;
 };
 
+/** One of a persistent activity's fixed places, as the client gets it. The
+ * two optional fields are either set and meaningful or null — never blank. */
+export type ActivityLocation = {
+  id: string;
+  name: string;
+  mapsUrl: string;
+  /** The place's own reservation page, when it has one. */
+  bookingUrl: string | null;
+  /** The spelling Google Maps knows the place by, when it differs from
+   * `name` — see `buildBookingGoogleCalendarUrl`. */
+  mapsPlaceName: string | null;
+};
+
 export const createActivity = async (
   env: Env,
   params: {
@@ -340,6 +353,7 @@ const selectBookings = (db: Db) =>
       locationId: activityBookingsTable.locationId,
       locationName: activityLocationsTable.name,
       locationMapsUrl: activityLocationsTable.mapsUrl,
+      locationBookingUrl: activityLocationsTable.bookingUrl,
       createdBy: activityBookingsTable.createdBy,
       createdByName: usersTable.name,
     })
@@ -411,6 +425,7 @@ const shapeBookings = (rows: BookingRow[], attendeeRows: AttendeeRow[]) => {
             id: booking.locationId,
             name: booking.locationName,
             mapsUrl: booking.locationMapsUrl,
+            bookingUrl: booking.locationBookingUrl,
           }
         : null,
     createdBy: booking.createdBy,
@@ -609,6 +624,8 @@ export const listActivitiesForChannel = async (env: Env, channelId: string, user
           activityId: activityLocationsTable.activityId,
           name: activityLocationsTable.name,
           mapsUrl: activityLocationsTable.mapsUrl,
+          bookingUrl: activityLocationsTable.bookingUrl,
+          mapsPlaceName: activityLocationsTable.mapsPlaceName,
         })
         .from(activityLocationsTable)
         .where(
@@ -666,10 +683,16 @@ export const listActivitiesForChannel = async (env: Env, channelId: string, user
     responsesByActivity.set(row.activityId, list);
   }
 
-  const locationsByActivity = new Map<string, { id: string; name: string; mapsUrl: string }[]>();
+  const locationsByActivity = new Map<string, ActivityLocation[]>();
   for (const row of locationRows) {
     const list = locationsByActivity.get(row.activityId) ?? [];
-    list.push({ id: row.id, name: row.name, mapsUrl: row.mapsUrl });
+    list.push({
+      id: row.id,
+      name: row.name,
+      mapsUrl: row.mapsUrl,
+      bookingUrl: row.bookingUrl,
+      mapsPlaceName: row.mapsPlaceName,
+    });
     locationsByActivity.set(row.activityId, list);
   }
 

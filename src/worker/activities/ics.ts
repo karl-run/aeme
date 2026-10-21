@@ -42,8 +42,10 @@ export type BookingEventParams = {
   description: string;
   location: string;
   /** A place picked from the activity's fixed locations; its maps link rides
-   * along in LOCATION, which most calendar apps linkify. */
-  fixedLocation: { name: string; mapsUrl: string } | null;
+   * along in LOCATION, which most calendar apps linkify. `mapsPlaceName` is
+   * the spelling Google Maps knows it by, when the activity's own name for it
+   * isn't one Maps would match. */
+  fixedLocation: { name: string; mapsUrl: string; mapsPlaceName: string | null } | null;
   createdByName: string;
   /** Members and guests alike, already resolved to display names. They go in
    * the description rather than as ATTENDEE properties: that field takes a
@@ -110,8 +112,11 @@ export const buildBookingGoogleCalendarUrl = (params: BookingEventParams) => {
   const { description, locationText } = buildBookingEventFields(params);
   // Google matches the location *text* against Maps places and doesn't follow
   // links, so a fixed location passes just its name (which Google can tag)
-  // and its maps link moves into the details instead.
-  const location = params.fixedLocation?.name ?? locationText;
+  // and its maps link moves into the details instead. The Maps spelling wins
+  // when it's set, since "the usual court" matches no place on the map.
+  const location = params.fixedLocation
+    ? (params.fixedLocation.mapsPlaceName ?? params.fixedLocation.name)
+    : locationText;
   const details = params.fixedLocation
     ? [description, `Map: ${params.fixedLocation.mapsUrl}`].filter(Boolean).join("\n\n")
     : description;

@@ -75,6 +75,21 @@ export const BookingDetailsDialog = ({
               >
                 {booking.fixedLocation.name}
               </a>
+              {/* The venue's own reservation page — the æme booking says who's
+                  coming, the place still has to be booked with them. */}
+              {booking.fixedLocation.bookingUrl && (
+                <>
+                  {" · "}
+                  <a
+                    href={booking.fixedLocation.bookingUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="underline"
+                  >
+                    Book
+                  </a>
+                </>
+              )}
             </p>
           ) : (
             booking.location && (

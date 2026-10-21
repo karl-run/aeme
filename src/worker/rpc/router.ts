@@ -32,6 +32,7 @@ import {
   archiveActivityLocation,
   createActivityLocation,
   getActivityLocationById,
+  updateActivityLocation,
 } from "../activities/location.ts";
 import { completeLogin } from "../auth/otp.ts";
 import {
@@ -208,9 +209,14 @@ const exceedsMax = (
   guestNames: string[],
 ) => maxMemberCount !== null && attendeeUserIds.length + guestNames.length > maxMemberCount;
 
-const createLocationSchema = z.object({
+/** Shared by creating a location and editing one — an edit replaces the
+ * whole place, so both take the same shape. The two optional fields come in
+ * as null rather than "", so a cleared field reaches the DB as NULL. */
+const locationSchema = z.object({
   name: z.string().trim().min(1),
   mapsUrl: z.url(),
+  bookingUrl: z.url().nullable(),
+  mapsPlaceName: z.string().trim().min(1).nullable(),
 });
 
 const loadBookingEventParams = async (
@@ -240,7 +246,11 @@ const loadBookingEventParams = async (
     description: booking.description,
     location: booking.location,
     fixedLocation: bookingLocation
-      ? { name: bookingLocation.name, mapsUrl: bookingLocation.mapsUrl }
+      ? {
+          name: bookingLocation.name,
+          mapsUrl: bookingLocation.mapsUrl,
+          mapsPlaceName: bookingLocation.mapsPlaceName,
+        }
       : null,
     createdByName: createdByName ?? "someone",
     attendeeNames,
@@ -685,7 +695,7 @@ export const apiRouter = new Hono<{ Bindings: Env }>()
 
     return c.json({ success: true });
   })
-  .post("/activities/:id/locations", zValidator("json", createLocationSchema), async (c) => {
+  .post("/activities/:id/locations", zValidator("json", locationSchema), async (c) => {
     const sessionId = getCookie(c, SESSION_COOKIE_NAME);
     const session = sessionId ? await getSessionMeta(c.env, sessionId) : null;
     if (!session) return c.json({ error: "Unauthorized" }, 401);
@@ -702,14 +712,56 @@ export const apiRouter = new Hono<{ Bindings: Env }>()
       return c.json({ error: "Only repeating activities have fixed locations." }, 400);
     }
 
-    const { name, mapsUrl } = c.req.valid("json");
+    const { name, mapsUrl, bookingUrl, mapsPlaceName } = c.req.valid("json");
 
     try {
-      const location = await createActivityLocation(c.env, { activityId, name, mapsUrl });
+      const location = await createActivityLocation(c.env, {
+        activityId,
+        name,
+        mapsUrl,
+        bookingUrl,
+        mapsPlaceName,
+      });
       return c.json({ location });
     } catch {
       // The only constraint that can realistically bite here is the partial
       // unique index on (activity, name).
+      return c.json({ error: "There's already a location with that name." }, 400);
+    }
+  })
+  .put("/activities/:id/locations/:locationId", zValidator("json", locationSchema), async (c) => {
+    const sessionId = getCookie(c, SESSION_COOKIE_NAME);
+    const session = sessionId ? await getSessionMeta(c.env, sessionId) : null;
+    if (!session) return c.json({ error: "Unauthorized" }, 401);
+
+    const activityId = c.req.param("id");
+    const activity = await getActivityById(c.env, activityId);
+    if (!activity || activity.channelId !== session.channelId) {
+      return c.json({ error: "Not found" }, 404);
+    }
+    if (activity.createdBy !== session.userId) {
+      return c.json({ error: "Only the activity's creator can edit it." }, 403);
+    }
+
+    const locationId = c.req.param("locationId");
+    const existing = await getActivityLocationById(c.env, locationId);
+    // An archived location is past editing: it's no longer offered, and its
+    // name may since have been taken by its replacement.
+    if (!existing || existing.activityId !== activityId || existing.archived) {
+      return c.json({ error: "Not found" }, 404);
+    }
+
+    const { name, mapsUrl, bookingUrl, mapsPlaceName } = c.req.valid("json");
+
+    try {
+      const location = await updateActivityLocation(c.env, locationId, {
+        name,
+        mapsUrl,
+        bookingUrl,
+        mapsPlaceName,
+      });
+      return c.json({ location });
+    } catch {
       return c.json({ error: "There's already a location with that name." }, 400);
     }
   })

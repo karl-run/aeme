@@ -286,6 +286,15 @@ export const activityLocationsTable = sqliteTable(
       .references(() => activitiesTable.id, { onDelete: "cascade" }),
     name: text().notNull(),
     mapsUrl: text("maps_url").notNull(),
+    /** Where the place is actually booked — the court's own reservation page,
+     * the pub's table form. Optional: plenty of places are just turned up to. */
+    bookingUrl: text("booking_url"),
+    /** What Google Maps calls the place, when that differs from the name used
+     * here ("the usual court" vs "Ekeberg Tennisklubb"). Google Calendar's
+     * LOCATION takes text and doesn't follow links, so it only tags a place it
+     * recognises — this is the spelling handed to it. Optional: unset means
+     * `name` is already the one Google knows. */
+    mapsPlaceName: text("maps_place_name"),
     archived: integer({ mode: "boolean" }).notNull().default(false),
     created: text().notNull(),
   },
@@ -297,6 +306,16 @@ export const activityLocationsTable = sqliteTable(
       .where(sql`${t.archived} = 0`),
     check("activity_locations_name_not_empty", sql`length(trim(${t.name})) > 0`),
     check("activity_locations_maps_url_not_empty", sql`length(trim(${t.mapsUrl})) > 0`),
+    // The optional two are either absent or meaningful — never a blank string
+    // standing in for "unset", which the client would have to special-case.
+    check(
+      "activity_locations_booking_url_not_empty",
+      sql`${t.bookingUrl} IS NULL OR length(trim(${t.bookingUrl})) > 0`,
+    ),
+    check(
+      "activity_locations_maps_place_name_not_empty",
+      sql`${t.mapsPlaceName} IS NULL OR length(trim(${t.mapsPlaceName})) > 0`,
+    ),
   ],
 );
 
