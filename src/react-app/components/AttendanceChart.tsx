@@ -75,7 +75,7 @@ export const AttendanceChart = ({ rows, bookings }: Props) => {
         nice: true,
         grid: true,
         axis: {
-          label: `Bookings attended of ${bookings}`,
+          label: `Bookings joined of ${bookings}`,
           // Attendance is a count: never label a tick "2.5".
           ticks: { format: (value: number) => (Number.isInteger(value) ? String(value) : "") },
         },
@@ -103,7 +103,7 @@ export const AttendanceChart = ({ rows, bookings }: Props) => {
 
         return {
           title: row.name,
-          rows: [{ label: "Turned up to", value: `${row.attended} of ${bookings}` }],
+          rows: [{ label: "Joined", value: `${row.attended} of ${bookings}` }],
         };
       },
     },
@@ -113,7 +113,7 @@ export const AttendanceChart = ({ rows, bookings }: Props) => {
     <Chart
       definition={chart}
       height={rows.length * ROW_HEIGHT + AXIS_HEIGHT}
-      ariaLabel="Attendance per person across past bookings"
+      ariaLabel="Bookings joined per person"
       ariaDescription={rows.map((row) => `${row.name}: ${row.attended} of ${bookings}`).join(", ")}
     />
   );

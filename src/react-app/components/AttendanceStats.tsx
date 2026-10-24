@@ -40,7 +40,7 @@ export const AttendanceStats = ({ activityId, pastBookingCount }: Props) => {
       <div>
         <Button type="button" variant="outline" size="sm" onClick={() => setOpen(true)}>
           <ChartColumnIcon data-icon="inline-start" />
-          Show who turned up
+          Show the regulars
         </Button>
       </div>
     );
@@ -52,7 +52,7 @@ export const AttendanceStats = ({ activityId, pastBookingCount }: Props) => {
         <p className="text-sm text-muted-foreground">
           {stats.data
             ? `Across ${stats.data.bookings} past booking${stats.data.bookings === 1 ? "" : "s"}.`
-            : "Attendance across past bookings."}
+            : "Who's been joining past bookings."}
         </p>
         <Button type="button" variant="ghost" size="sm" onClick={() => setOpen(false)}>
           Hide
@@ -79,9 +79,7 @@ export const AttendanceStats = ({ activityId, pastBookingCount }: Props) => {
           Loading…
         </p>
       ) : stats.data.attendance.length === 0 ? (
-        <p className="text-sm text-muted-foreground">
-          Nobody was listed as joining any of the past bookings.
-        </p>
+        <p className="text-sm text-muted-foreground">No one's been listed on a past booking yet.</p>
       ) : (
         <LazyChunkBoundary
           fallback={

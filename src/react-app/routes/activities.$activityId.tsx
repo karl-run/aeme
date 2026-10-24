@@ -398,8 +398,8 @@ const ActivityDetail = () => {
 
         {activity.persistent && (
           <Section
-            title="Who turns up"
-            description="Attendance across the bookings that have already happened."
+            title="Regulars"
+            description="Who's been joining the bookings that have already happened."
           >
             <AttendanceStats
               activityId={activity.id}
