@@ -775,6 +775,54 @@ export const deleteActivity = async (
  * in two; guests, who have no id, are grouped by the name that was typed, so
  * the same spelling counts as the same person and a different one doesn't.
  * Only past bookings count: what's still coming up hasn't been attended. */
+/** Merges the per-spelling rows from `getAttendanceStatsForActivity` into one
+ * entry per person, most-attended first.
+ *
+ * A member arrives as a single row already, keyed by account. A guest is
+ * whatever was typed into the booking form, so the same person shows up as
+ * "Silje" and "silje" — folded here with JavaScript's `toLowerCase`, which
+ * unlike SQLite's knows that "Ø" and "ø" are the same letter.
+ *
+ * The spelling shown is the one used most often, so a single stray
+ * lowercasing doesn't rename someone; ties go to whichever sorts first,
+ * which puts the capitalized form ahead of the bare one. Cheap either way —
+ * this runs over one row per person, not one per booking. */
+const foldAttendance = (
+  rows: readonly { userId: string | null; name: string; attended: number }[],
+) => {
+  const byPerson = new Map<
+    string,
+    { key: string; name: string; attended: number; spelling: number }
+  >();
+
+  for (const row of rows) {
+    const key = row.userId ?? `guest:${row.name.toLowerCase()}`;
+    const person = byPerson.get(key);
+
+    if (!person) {
+      byPerson.set(key, { key, name: row.name, attended: row.attended, spelling: row.attended });
+      continue;
+    }
+
+    person.attended += row.attended;
+    if (
+      row.attended > person.spelling ||
+      (row.attended === person.spelling && row.name < person.name)
+    ) {
+      person.name = row.name;
+      person.spelling = row.attended;
+    }
+  }
+
+  return (
+    [...byPerson.values()]
+      // Name breaks ties, so an unchanged history always renders in the same
+      // order instead of shuffling between requests.
+      .sort((a, b) => b.attended - a.attended || a.name.localeCompare(b.name))
+      .map(({ key, name, attended }) => ({ key, name, attended }))
+  );
+};
+
 export const getAttendanceStatsForActivity = async (env: Env, activityId: string) => {
   const db = createDb(env);
   const today = todayInDisplayZone();
@@ -784,16 +832,19 @@ export const getAttendanceStatsForActivity = async (env: Env, activityId: string
     lt(activityBookingsTable.date, today),
   );
 
-  // The grouping key: a member's id, or the guest's name namespaced so it
-  // can't collide with one.
-  const person = sql<string>`coalesce(${activityBookingAttendeesTable.userId}, 'guest:' || ${activityBookingAttendeesTable.name})`;
+  // Tallied per member, or per exact guest spelling — "Silje" and "silje"
+  // come back as two rows here and are folded below. Doing the fold in SQL
+  // instead would mean `lower()`, which SQLite only applies to ASCII: it
+  // would merge those two but still split "Øyvind" from "øyvind", which on a
+  // Norwegian channel is the case that matters.
+  const person = sql<string>`coalesce(${activityBookingAttendeesTable.userId}, 'guest:' || trim(${activityBookingAttendeesTable.name}))`;
   const attended = sql<number>`count(*)`;
 
   const [attendanceRows, bookingCountRows] = await db.batch([
     db
       .select({
-        key: person,
-        name: sql<string>`coalesce(${usersTable.name}, ${activityBookingAttendeesTable.name})`,
+        userId: activityBookingAttendeesTable.userId,
+        name: sql<string>`coalesce(${usersTable.name}, trim(${activityBookingAttendeesTable.name}))`,
         attended,
       })
       .from(activityBookingAttendeesTable)
@@ -803,13 +854,7 @@ export const getAttendanceStatsForActivity = async (env: Env, activityId: string
       )
       .leftJoin(usersTable, eq(usersTable.userId, activityBookingAttendeesTable.userId))
       .where(isPast)
-      .groupBy(person)
-      // Name breaks ties, so an unchanged history always renders in the same
-      // order instead of shuffling between requests.
-      .orderBy(
-        desc(attended),
-        asc(sql`coalesce(${usersTable.name}, ${activityBookingAttendeesTable.name})`),
-      ),
+      .groupBy(person),
 
     db
       .select({ count: sql<number>`count(*)` })
@@ -820,6 +865,6 @@ export const getAttendanceStatsForActivity = async (env: Env, activityId: string
   return {
     /** Past bookings in total — the denominator the chart is read against. */
     bookings: bookingCountRows[0]?.count ?? 0,
-    attendance: attendanceRows,
+    attendance: foldAttendance(attendanceRows),
   };
 };

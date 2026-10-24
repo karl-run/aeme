@@ -91,7 +91,22 @@ export const AttendanceChart = ({ rows, bookings }: Props) => {
       muted: "#71717a",
       grid: "#e4e4e7",
     },
-    tooltip,
+    // The default body labels raw channels, which here reads "Bookings
+    // attended of 7 / 5" over a row labelled "y" holding the name. Both
+    // marks sit on the same datum, so one row off `points[0]` says it once
+    // and says it in words.
+    tooltip: {
+      use: tooltip,
+      content: (points) => {
+        const row = points[0]?.datum;
+        if (!row) return { rows: [] };
+
+        return {
+          title: row.name,
+          rows: [{ label: "Turned up to", value: `${row.attended} of ${bookings}` }],
+        };
+      },
+    },
   });
 
   return (
