@@ -1,6 +1,6 @@
 import { cn } from "cn";
 import { format } from "date-fns";
-import { CalendarIcon, MapPinIcon, TicketIcon, XIcon } from "lucide-react";
+import { CalendarIcon, HistoryIcon, MapPinIcon, TicketIcon, XIcon } from "lucide-react";
 import { type FormEvent, type KeyboardEvent, useState } from "react";
 
 import { availableForBooking, offersOnDate } from "../lib/responders.ts";
@@ -103,6 +103,11 @@ export const BookingForm = ({ activity, booking, initialDate, onDone, onCancel }
     offersOnDate(activity.responses, bookingDate).map((offer) => [offer.userId, offer.ranges]),
   );
   const hourly = activity.slotGranularity === "hourly";
+
+  // A date already gone: the worker saves it without announcing it (see
+  // `isHistoricalDate`), and the form says so before you commit. Compared as
+  // plain `YYYY-MM-DD` strings, same as the worker does.
+  const isHistorical = bookingDate !== "" && bookingDate < toDateStr(new Date());
 
   // A retired place stays offered while the booking that used it is open, so
   // it can be kept or swapped — it just isn't on offer for anything new.
@@ -230,6 +235,17 @@ export const BookingForm = ({ activity, booking, initialDate, onDone, onCancel }
             />
           </PopoverContent>
         </Popover>
+
+        {isHistorical && (
+          <p className="flex items-start gap-2 rounded-md border border-border bg-muted/60 px-3 py-2 text-xs text-muted-foreground">
+            <HistoryIcon className="mt-px size-3.5 shrink-0" />
+            <span>
+              That date has already passed, so this is saved as a{" "}
+              <span className="font-medium text-foreground">historical booking</span> — nothing is
+              posted to Slack.
+            </span>
+          </p>
+        )}
       </div>
 
       {hourly && bookingDate !== "" && (
@@ -479,7 +495,13 @@ export const BookingForm = ({ activity, booking, initialDate, onDone, onCancel }
           Cancel
         </Button>
         <Button type="submit" disabled={!valid || mutation.isPending}>
-          {mutation.isPending ? "Saving…" : isEdit ? "Save changes" : "Add booking"}
+          {mutation.isPending
+            ? "Saving…"
+            : isEdit
+              ? "Save changes"
+              : isHistorical
+                ? "Add historical booking"
+                : "Add booking"}
         </Button>
       </div>
 

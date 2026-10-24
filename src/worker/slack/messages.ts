@@ -118,6 +118,12 @@ export async function postOrUpdateMessage(
     blocks?: unknown[];
     thread_ts?: string;
     reply_broadcast?: boolean;
+    /** Edit the existing message if there is one, but never post a new one —
+     * for content that may only ever be a correction, not an announcement.
+     * Without this, an edit that fails (the post was deleted, say) falls
+     * through to posting, which for a back-filled booking would announce
+     * something that happened weeks ago. */
+    updateOnly?: boolean;
   },
 ): Promise<string | null> {
   if (params.existingTs) {
@@ -131,6 +137,8 @@ export async function postOrUpdateMessage(
     });
     if (updated) return null;
   }
+
+  if (params.updateOnly) return null;
 
   const posted = await postMessage(env, {
     channel: params.channel,

@@ -13,6 +13,7 @@ import {
 } from "drizzle-orm";
 
 import { BASE_URL, DISPLAY_TIME_ZONE } from "../constants.ts";
+import { todayInDisplayZone } from "../dates.ts";
 import { createDb, type Db } from "../db/db.ts";
 import {
   activitiesTable,
@@ -324,17 +325,6 @@ export const updateActivity = async (
 
   return getActivityById(env, params.activityId);
 };
-
-/** Today as a plain `YYYY-MM-DD` in the workspace's zone. A booking's `date`
- * is a floating local date and Workers run in UTC, so `new Date()` on its own
- * would move the "is this in the past?" cutoff by the offset. */
-const todayInDisplayZone = () =>
-  new Intl.DateTimeFormat("en-CA", {
-    timeZone: DISPLAY_TIME_ZONE,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(new Date());
 
 /** The booking columns every caller needs, with the booker's name and the
  * fixed location (if any) joined in. The location join is left, and

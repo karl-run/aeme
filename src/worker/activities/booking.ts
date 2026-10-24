@@ -1,6 +1,7 @@
 import { eq, sql } from "drizzle-orm";
 
 import { BASE_URL } from "../constants.ts";
+import { isHistoricalDate } from "../dates.ts";
 import { createDb } from "../db/db.ts";
 import { activityBookingAttendeesTable, activityBookingsTable, usersTable } from "../db/schema.ts";
 import { deleteMessage, postOrUpdateMessage } from "../slack/messages.ts";
@@ -120,6 +121,9 @@ const announceBooking = async (
     existingTs: string | null;
     text: string;
     blocks: unknown[];
+    /** A booking whose date has passed: keep an announcement that already
+     * exists honest, but never create one. */
+    historical: boolean;
   },
 ) => {
   const ts = await postOrUpdateMessage(env, {
@@ -129,6 +133,7 @@ const announceBooking = async (
     blocks: params.blocks,
     thread_ts: params.activityThreadTs ?? undefined,
     reply_broadcast: params.activityThreadTs !== null,
+    updateOnly: params.historical,
   });
 
   if (ts) {
@@ -218,27 +223,34 @@ export const createBooking = async (
 
   await db.batch([bookingInsert, ...attendeeInserts, ...guestInserts]);
 
-  const { text, blocks } = buildBookingMessage({
-    bookingId,
-    activityTitle: params.activityTitle,
-    date: params.date,
-    from: params.from,
-    to: params.to,
-    createdBy: params.createdBy,
-    attendeeUserIds: params.attendeeUserIds,
-    guestNames: params.guestNames,
-    description: params.description,
-    location: params.location,
-    fixedLocation: params.fixedLocation,
-  });
-  await announceBooking(env, {
-    bookingId,
-    activityChannelId: params.activityChannelId,
-    activityThreadTs: params.activityThreadTs,
-    existingTs: null,
-    text,
-    blocks,
-  });
+  // A back-fill is recorded, not announced: the channel can't be invited to
+  // something that already happened, and a ping about last Tuesday reads as
+  // a mistake. Decided from the date here rather than from a flag the
+  // client sends, so there's no way to ask for silence on a future booking.
+  if (!isHistoricalDate(params.date)) {
+    const { text, blocks } = buildBookingMessage({
+      bookingId,
+      activityTitle: params.activityTitle,
+      date: params.date,
+      from: params.from,
+      to: params.to,
+      createdBy: params.createdBy,
+      attendeeUserIds: params.attendeeUserIds,
+      guestNames: params.guestNames,
+      description: params.description,
+      location: params.location,
+      fixedLocation: params.fixedLocation,
+    });
+    await announceBooking(env, {
+      bookingId,
+      activityChannelId: params.activityChannelId,
+      activityThreadTs: params.activityThreadTs,
+      existingTs: null,
+      text,
+      blocks,
+      historical: false,
+    });
+  }
 
   return { id: bookingId };
 };
@@ -298,27 +310,35 @@ export const updateBooking = async (
 
   await db.batch([bookingUpdate, attendeeDelete, ...attendeeInserts, ...guestInserts]);
 
-  const { text, blocks } = buildBookingMessage({
-    bookingId: params.bookingId,
-    activityTitle: params.activityTitle,
-    date: params.date,
-    from: params.from,
-    to: params.to,
-    createdBy: params.createdBy,
-    attendeeUserIds: params.attendeeUserIds,
-    guestNames: params.guestNames,
-    description: params.description,
-    location: params.location,
-    fixedLocation: params.fixedLocation,
-  });
-  await announceBooking(env, {
-    bookingId: params.bookingId,
-    activityChannelId: params.activityChannelId,
-    activityThreadTs: params.activityThreadTs,
-    existingTs: params.slackMessageTs,
-    text,
-    blocks,
-  });
+  // Editing a back-filled booking stays silent for the same reason creating
+  // one does. An edit to a booking that *was* announced still updates that
+  // post, even once its date has passed: the message is already in the
+  // channel, and editing it notifies nobody while leaving it stale misleads
+  // everyone who scrolls past.
+  if (params.slackMessageTs !== null || !isHistoricalDate(params.date)) {
+    const { text, blocks } = buildBookingMessage({
+      bookingId: params.bookingId,
+      activityTitle: params.activityTitle,
+      date: params.date,
+      from: params.from,
+      to: params.to,
+      createdBy: params.createdBy,
+      attendeeUserIds: params.attendeeUserIds,
+      guestNames: params.guestNames,
+      description: params.description,
+      location: params.location,
+      fixedLocation: params.fixedLocation,
+    });
+    await announceBooking(env, {
+      bookingId: params.bookingId,
+      activityChannelId: params.activityChannelId,
+      activityThreadTs: params.activityThreadTs,
+      existingTs: params.slackMessageTs,
+      text,
+      blocks,
+      historical: isHistoricalDate(params.date),
+    });
+  }
 };
 
 /** Removes a booking, its attendees, and the Slack post announcing it. Only
