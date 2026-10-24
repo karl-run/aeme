@@ -31,10 +31,12 @@ export const useBookingHistoryQuery = (activityId: string, enabled: boolean) =>
   });
 
 /** Editing or removing a booking can change what's in the history as well as
- * what's upcoming, so both go stale together. */
+ * what's upcoming, so both go stale together — and with them the attendance
+ * counts, which are a tally of exactly that history. */
 const invalidateBookings = (queryClient: ReturnType<typeof useQueryClient>) => {
   queryClient.invalidateQueries({ queryKey: activitiesQueryKey });
   queryClient.invalidateQueries({ queryKey: ["bookings", "history"] });
+  queryClient.invalidateQueries({ queryKey: ["stats", "attendance"] });
 };
 
 export const useCreateBookingMutation = () => {

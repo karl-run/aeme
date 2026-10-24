@@ -12,6 +12,7 @@ import {
   encodePastBookingCursor,
   getActivityById,
   listActivitiesForChannel,
+  getAttendanceStatsForActivity,
   listPastBookingsForActivity,
   updateActivity,
 } from "../activities/activity.ts";
@@ -536,6 +537,25 @@ export const apiRouter = new Hono<{ Bindings: Env }>()
       });
     },
   )
+  // Who turned up to this activity's finished bookings, counted in SQL. Its
+  // own route rather than a field on `GET /activities`: that payload is
+  // polled every few seconds by everyone on the dashboard, and this is a
+  // group-by over the whole history that almost nobody is looking at. The
+  // page asks for it when someone opens the stats.
+  .get("/activities/:id/stats/attendance", async (c) => {
+    const sessionId = getCookie(c, SESSION_COOKIE_NAME);
+    const session = sessionId ? await getSessionMeta(c.env, sessionId) : null;
+    if (!session) return c.json({ error: "Unauthorized" }, 401);
+
+    const activityId = c.req.param("id");
+    const activity = await getActivityById(c.env, activityId);
+    if (!activity || activity.channelId !== session.channelId) {
+      return c.json({ error: "Not found" }, 404);
+    }
+
+    const stats = await getAttendanceStatsForActivity(c.env, activityId);
+    return c.json(stats);
+  })
   .post("/activities/:id/bookings", zValidator("json", createBookingSchema), async (c) => {
     const sessionId = getCookie(c, SESSION_COOKIE_NAME);
     const session = sessionId ? await getSessionMeta(c.env, sessionId) : null;

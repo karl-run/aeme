@@ -762,3 +762,64 @@ export const deleteActivity = async (
     await deleteMessage(env, { channel: params.channelId, ts: params.slackMessageTs });
   }
 };
+
+/** How many of this activity's finished bookings each person turned up to,
+ * most-attended first.
+ *
+ * Counted by SQLite in one round trip rather than by walking the bookings in
+ * the worker: a standing activity accumulates history without end, and the
+ * CPU budget here is single-digit milliseconds. The worker only serializes
+ * the handful of rows that come back — one per person, not one per booking.
+ *
+ * Members are grouped by user id so a rename doesn't split someone's history
+ * in two; guests, who have no id, are grouped by the name that was typed, so
+ * the same spelling counts as the same person and a different one doesn't.
+ * Only past bookings count: what's still coming up hasn't been attended. */
+export const getAttendanceStatsForActivity = async (env: Env, activityId: string) => {
+  const db = createDb(env);
+  const today = todayInDisplayZone();
+
+  const isPast = and(
+    eq(activityBookingsTable.activityId, activityId),
+    lt(activityBookingsTable.date, today),
+  );
+
+  // The grouping key: a member's id, or the guest's name namespaced so it
+  // can't collide with one.
+  const person = sql<string>`coalesce(${activityBookingAttendeesTable.userId}, 'guest:' || ${activityBookingAttendeesTable.name})`;
+  const attended = sql<number>`count(*)`;
+
+  const [attendanceRows, bookingCountRows] = await db.batch([
+    db
+      .select({
+        key: person,
+        name: sql<string>`coalesce(${usersTable.name}, ${activityBookingAttendeesTable.name})`,
+        attended,
+      })
+      .from(activityBookingAttendeesTable)
+      .innerJoin(
+        activityBookingsTable,
+        eq(activityBookingsTable.id, activityBookingAttendeesTable.bookingId),
+      )
+      .leftJoin(usersTable, eq(usersTable.userId, activityBookingAttendeesTable.userId))
+      .where(isPast)
+      .groupBy(person)
+      // Name breaks ties, so an unchanged history always renders in the same
+      // order instead of shuffling between requests.
+      .orderBy(
+        desc(attended),
+        asc(sql`coalesce(${usersTable.name}, ${activityBookingAttendeesTable.name})`),
+      ),
+
+    db
+      .select({ count: sql<number>`count(*)` })
+      .from(activityBookingsTable)
+      .where(isPast),
+  ]);
+
+  return {
+    /** Past bookings in total — the denominator the chart is read against. */
+    bookings: bookingCountRows[0]?.count ?? 0,
+    attendance: attendanceRows,
+  };
+};

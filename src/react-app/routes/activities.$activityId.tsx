@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import type { ActivitySlot } from "../../worker/db/schema.ts";
 import { ActivityLocations } from "../components/ActivityLocations.tsx";
+import { AttendanceStats } from "../components/AttendanceStats.tsx";
 import { AvailabilityGrid } from "../components/AvailabilityGrid.tsx";
 import { BookingDetailsDialog } from "../components/BookingDetailsDialog.tsx";
 import { BookingHistory } from "../components/BookingHistory.tsx";
@@ -394,6 +395,18 @@ const ActivityDetail = () => {
             idealMemberCount={activity.idealMemberCount}
           />
         </Section>
+
+        {activity.persistent && (
+          <Section
+            title="Who turns up"
+            description="Attendance across the bookings that have already happened."
+          >
+            <AttendanceStats
+              activityId={activity.id}
+              pastBookingCount={activity.pastBookingCount}
+            />
+          </Section>
+        )}
 
         <Section title="Who can make it" description="Everyone's answers, day by day.">
           <ResponderBreakdown activity={activity} />
