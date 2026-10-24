@@ -1,16 +1,16 @@
 import { ChartColumnIcon } from "lucide-react";
 import { lazy, Suspense, useState } from "react";
 
-import { useAttendanceStatsQuery } from "../queries/stats.ts";
+import { useBookingStatsQuery } from "../queries/stats.ts";
 import { LazyChunkBoundary } from "./LazyChunkBoundary.tsx";
 import { Button } from "./ui/button.tsx";
 
 /** The chart and `@tanstack/charts` behind it are a chunk of their own,
  * fetched when someone opens the stats — the dashboard and every other page
- * never pay for it. Matches the data, which is behind its own request for
- * the same reason. */
-const AttendanceChart = lazy(() =>
-  import("./AttendanceChart.tsx").then((m) => ({ default: m.AttendanceChart })),
+ * never pay for it. Both charts here are the same component, so opening the
+ * panel costs one chunk however many tallies it ends up showing. */
+const CountBarChart = lazy(() =>
+  import("./CountBarChart.tsx").then((m) => ({ default: m.CountBarChart })),
 );
 
 type Props = {
@@ -21,17 +21,18 @@ type Props = {
   pastBookingCount: number;
 };
 
-/** Who actually turns up: one bar per person over the activity's finished
- * bookings.
+/** What the finished bookings add up to: who keeps coming, and where it keeps
+ * happening.
  *
- * Everything here is deferred. The counts are a group-by over the whole
- * history, so they're left off the polled activities payload and fetched on
- * the click; the chart library is a lazy import. Failures are handled on
- * their own — a failed fetch offers a retry, a failed chunk falls back to a
- * message — because neither should take the activity page with it. */
-export const AttendanceStats = ({ activityId, pastBookingCount }: Props) => {
+ * Everything here is deferred. The counts are a pair of group-bys over the
+ * whole history, so they're left off the polled activities payload and
+ * fetched on the click; the chart library is a lazy import. Failures are
+ * handled on their own — a failed fetch offers a retry, a failed chunk falls
+ * back to a message — because neither should take the activity page with
+ * it. */
+export const BookingStats = ({ activityId, pastBookingCount }: Props) => {
   const [open, setOpen] = useState(false);
-  const stats = useAttendanceStatsQuery(activityId, open);
+  const stats = useBookingStatsQuery(activityId, open);
 
   if (pastBookingCount === 0) return null;
 
@@ -46,8 +47,12 @@ export const AttendanceStats = ({ activityId, pastBookingCount }: Props) => {
     );
   }
 
+  // One place used every time is a fact the list of locations already tells
+  // you; a chart of a single full-width bar isn't worth the room.
+  const showLocations = (stats.data?.locations.length ?? 0) > 1;
+
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between gap-3">
         <p className="text-sm text-muted-foreground">
           {stats.data
@@ -62,7 +67,7 @@ export const AttendanceStats = ({ activityId, pastBookingCount }: Props) => {
       {stats.isError ? (
         <div className="flex flex-wrap items-center gap-3">
           <p className="text-sm text-destructive" aria-live="polite">
-            Failed to load attendance.
+            Failed to load the stats.
           </p>
           <Button
             type="button"
@@ -84,7 +89,7 @@ export const AttendanceStats = ({ activityId, pastBookingCount }: Props) => {
         <LazyChunkBoundary
           fallback={
             <p className="text-sm text-destructive" aria-live="polite">
-              Couldn't load the chart. Reloading the page usually fixes it.
+              Couldn't load the charts. Reloading the page usually fixes it.
             </p>
           }
         >
@@ -95,7 +100,31 @@ export const AttendanceStats = ({ activityId, pastBookingCount }: Props) => {
               </p>
             }
           >
-            <AttendanceChart rows={stats.data.attendance} bookings={stats.data.bookings} />
+            <div className="flex flex-col gap-5">
+              <section className="flex flex-col gap-1">
+                <h3 className="text-sm font-semibold">Regulars</h3>
+                <CountBarChart
+                  rows={stats.data.attendance}
+                  total={stats.data.bookings}
+                  axisLabel={`Bookings joined of ${stats.data.bookings}`}
+                  valueLabel="Joined"
+                  ariaLabel="Bookings joined per person"
+                />
+              </section>
+
+              {showLocations && (
+                <section className="flex flex-col gap-1">
+                  <h3 className="text-sm font-semibold">Favourite spots</h3>
+                  <CountBarChart
+                    rows={stats.data.locations}
+                    total={stats.data.bookings}
+                    axisLabel={`Bookings played there of ${stats.data.bookings}`}
+                    valueLabel="Played there"
+                    ariaLabel="Bookings per location"
+                  />
+                </section>
+              )}
+            </div>
           </Suspense>
         </LazyChunkBoundary>
       )}

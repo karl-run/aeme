@@ -36,7 +36,7 @@ export const useBookingHistoryQuery = (activityId: string, enabled: boolean) =>
 const invalidateBookings = (queryClient: ReturnType<typeof useQueryClient>) => {
   queryClient.invalidateQueries({ queryKey: activitiesQueryKey });
   queryClient.invalidateQueries({ queryKey: ["bookings", "history"] });
-  queryClient.invalidateQueries({ queryKey: ["stats", "attendance"] });
+  queryClient.invalidateQueries({ queryKey: ["stats"] });
 };
 
 export const useCreateBookingMutation = () => {

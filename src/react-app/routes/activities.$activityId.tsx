@@ -4,10 +4,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import type { ActivitySlot } from "../../worker/db/schema.ts";
 import { ActivityLocations } from "../components/ActivityLocations.tsx";
-import { AttendanceStats } from "../components/AttendanceStats.tsx";
 import { AvailabilityGrid } from "../components/AvailabilityGrid.tsx";
 import { BookingDetailsDialog } from "../components/BookingDetailsDialog.tsx";
 import { BookingHistory } from "../components/BookingHistory.tsx";
+import { BookingStats } from "../components/BookingStats.tsx";
 import { DeleteActivityDialog } from "../components/DeleteActivityDialog.tsx";
 import { EditActivityDialog } from "../components/EditActivityDialog.tsx";
 import { PageContainer } from "../components/PageContainer.tsx";
@@ -398,13 +398,10 @@ const ActivityDetail = () => {
 
         {activity.persistent && (
           <Section
-            title="Regulars"
-            description="Who's been joining the bookings that have already happened."
+            title="Looking back"
+            description="Who's been joining, and where, across the bookings that have already happened."
           >
-            <AttendanceStats
-              activityId={activity.id}
-              pastBookingCount={activity.pastBookingCount}
-            />
+            <BookingStats activityId={activity.id} pastBookingCount={activity.pastBookingCount} />
           </Section>
         )}
 
