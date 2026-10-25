@@ -1,3 +1,5 @@
+import { utcInstantFromDisplayZone } from "../dates.ts";
+
 const MAX_LINE_OCTETS = 75;
 
 const utf8 = new TextEncoder();
@@ -41,14 +43,21 @@ const foldIcsLine = (line: string): string => {
 const escapeIcsText = (value: string) =>
   value.replace(/\\/g, "\\\\").replace(/,/g, "\\,").replace(/;/g, "\\;").replace(/\n/g, "\\n");
 
-/** `date` is YYYY-MM-DD, `time` is HH:MM — both local wall-clock values with
- * no stored timezone, so they're emitted as RFC 5545 "floating" time (no `Z`
- * suffix, no `TZID`): the receiving calendar app interprets them in whatever
- * timezone it's already in, which matches how they were entered. */
-const toIcsDateTime = (date: string, time: string) =>
-  `${date.replace(/-/g, "")}T${time.replace(":", "")}00`;
-
 const toIcsTimestamp = (iso: string) => iso.replace(/[-:]/g, "").replace(/\.\d+/, "");
+
+/** `date` is YYYY-MM-DD and `time` is HH:MM, both stored as the wall clock
+ * someone typed in Oslo with no zone attached — so they're resolved to the
+ * instant they actually name and emitted as UTC, with the `Z` suffix.
+ *
+ * These used to go out as RFC 5545 "floating" time (no `Z`, no `TZID`), on
+ * the reading that a client interprets floating time in whatever zone it's
+ * already in. Google doesn't: a subscribed feed's floating times are taken
+ * as UTC, which put every event in the calendar out by Oslo's offset — two
+ * hours through the summer, one after the October switch. UTC instants are
+ * what every client agrees on, and they need no `VTIMEZONE` to go with
+ * them. */
+const toIcsDateTime = (date: string, time: string) =>
+  toIcsTimestamp(utcInstantFromDisplayZone(date, time).toISOString());
 
 export type BookingEventParams = {
   bookingId: string;
@@ -160,9 +169,9 @@ export const buildCalendarFeedIcs = (
     ...events.flatMap(buildBookingVevent),
   ]);
 
-/** Google Calendar's "create event" template URL. Times are passed without a
- * `Z` suffix or `ctz`, which Google interprets in the user's own calendar
- * timezone — the same floating-time semantics as the ICS. */
+/** Google Calendar's "create event" template URL. `dates` carries the same
+ * UTC instants the ICS does, `Z` suffix and all, so the form opens on the
+ * right hour whatever timezone the person filling it in is sitting in. */
 export const buildBookingGoogleCalendarUrl = (params: BookingEventParams) => {
   const { description, locationText } = buildBookingEventFields(params);
   // Google matches the location *text* against Maps places and doesn't follow
