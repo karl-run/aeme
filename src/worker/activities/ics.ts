@@ -88,10 +88,19 @@ export type BookingEventParams = {
 };
 
 /** The human-facing fields of a booking's calendar event, shared by the ICS
- * file and the Google Calendar link so both say the same thing. */
+ * file, the subscription feed and the Google Calendar link so a booking says
+ * the same thing whichever way it reaches a calendar.
+ *
+ * `LOCATION` is matched against the map as *text* — neither Google nor Apple
+ * follows a link in it — so a fixed location passes the name the map knows
+ * it by, falling back to the channel's own name for the place, and its maps
+ * link moves into the description, where it stays clickable. A `LOCATION`
+ * with a URL in it geocodes to nothing, which costs the event its pin and
+ * its directions button: the one thing worth having from a calendar while
+ * standing outside the wrong building. */
 const buildBookingEventFields = (params: BookingEventParams) => {
   const locationText = params.fixedLocation
-    ? `${params.fixedLocation.name}, ${params.fixedLocation.mapsUrl}`
+    ? (params.fixedLocation.mapsPlaceName ?? params.fixedLocation.name)
     : params.location;
 
   const count = params.idealMemberCount
@@ -106,6 +115,7 @@ const buildBookingEventFields = (params: BookingEventParams) => {
     params.activityDescription,
     params.description,
     [joining, `Booked by ${params.createdByName}`].join("\n"),
+    params.fixedLocation ? `Map: ${params.fixedLocation.mapsUrl}` : "",
   ]
     .filter((part) => part !== "")
     .join("\n\n");
@@ -173,17 +183,9 @@ export const buildCalendarFeedIcs = (
  * UTC instants the ICS does, `Z` suffix and all, so the form opens on the
  * right hour whatever timezone the person filling it in is sitting in. */
 export const buildBookingGoogleCalendarUrl = (params: BookingEventParams) => {
+  // Same two fields the ICS carries — the place as text Maps can tag, the
+  // link to it in the details — which is now where that rule lives.
   const { description, locationText } = buildBookingEventFields(params);
-  // Google matches the location *text* against Maps places and doesn't follow
-  // links, so a fixed location passes just its name (which Google can tag)
-  // and its maps link moves into the details instead. The Maps spelling wins
-  // when it's set, since "the usual court" matches no place on the map.
-  const location = params.fixedLocation
-    ? (params.fixedLocation.mapsPlaceName ?? params.fixedLocation.name)
-    : locationText;
-  const details = params.fixedLocation
-    ? [description, `Map: ${params.fixedLocation.mapsUrl}`].filter(Boolean).join("\n\n")
-    : description;
 
   const url = new URL("https://calendar.google.com/calendar/render");
   url.searchParams.set("action", "TEMPLATE");
@@ -192,7 +194,7 @@ export const buildBookingGoogleCalendarUrl = (params: BookingEventParams) => {
     "dates",
     `${toIcsDateTime(params.date, params.from)}/${toIcsDateTime(params.date, params.to)}`,
   );
-  if (details) url.searchParams.set("details", details);
-  if (location) url.searchParams.set("location", location);
+  if (description) url.searchParams.set("details", description);
+  if (locationText) url.searchParams.set("location", locationText);
   return url.toString();
 };
