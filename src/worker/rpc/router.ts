@@ -1,5 +1,6 @@
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
+import type { Context } from "hono";
 import { deleteCookie, getCookie } from "hono/cookie";
 import * as z from "zod";
 
@@ -25,9 +26,11 @@ import {
   listBookingAttendeeNames,
   updateBooking,
 } from "../activities/booking.ts";
+import { listSubscriberBookingEvents } from "../activities/calendar-feed.ts";
 import {
   buildBookingGoogleCalendarUrl,
   buildBookingIcs,
+  buildCalendarFeedIcs,
   type BookingEventParams,
 } from "../activities/ics.ts";
 import {
@@ -47,7 +50,13 @@ import {
 import { addChannelMember, listChannelMembers, listChannelsForUser } from "../channels/channel.ts";
 import { getChannelInfo, getChannelMembers } from "../slack/channels.ts";
 import { USER_COLOR_PATTERN } from "../users/colors.ts";
-import { getUserName, setUserColor } from "../users/user.ts";
+import {
+  getCalendarToken,
+  getUserIdByCalendarToken,
+  getUserName,
+  issueCalendarToken,
+  setUserColor,
+} from "../users/user.ts";
 
 const userColorSchema = z.object({
   color: z
@@ -247,6 +256,17 @@ const locationSchema = z.object({
   mapsPlaceName: z.string().trim().min(1).nullable(),
 });
 
+/** The subscription URL, as the subscriber has to paste it into Google or
+ * Apple. Built from the request's own origin rather than `BASE_URL`, for two
+ * reasons: it keeps the link pointing at localhost in dev, and — the one that
+ * bites — this URL is fetched by Google's and Apple's servers, which don't do
+ * the IDNA conversion a browser does. The `Host` header a browser sends is
+ * always the ASCII form, so the origin off the request is already
+ * `xn--me-0ia.karl.run` and the feed is handed over in a shape its subscriber
+ * can actually resolve. */
+const calendarFeedUrl = (c: Context, calendarToken: string) =>
+  `${new URL(c.req.url).origin}/api/calendar/feed/${calendarToken}.ics`;
+
 const loadBookingEventParams = async (
   env: Env,
   bookingId: string,
@@ -332,6 +352,27 @@ export const apiRouter = new Hono<{ Bindings: Env }>()
     const { color } = c.req.valid("json");
     await setUserColor(c.env, session.userId, color);
     return c.json({ color });
+  })
+  /** The subscriber's own feed URL, or null if they've never asked for one —
+   * no token is minted just by looking at the profile page. */
+  .get("/session/calendar-feed", async (c) => {
+    const sessionId = getCookie(c, SESSION_COOKIE_NAME);
+    const session = sessionId ? await getSessionMeta(c.env, sessionId) : null;
+    if (!session) return c.json({ error: "Unauthorized" }, 401);
+
+    const calendarToken = await getCalendarToken(c.env, session.userId);
+    return c.json({ url: calendarToken ? calendarFeedUrl(c, calendarToken) : null });
+  })
+  /** Issues a feed URL — the same call whether this is the first one or a
+   * replacement for a link that got out. Whatever token they had stops
+   * resolving, so anything still polling the old URL now gets a 404. */
+  .post("/session/calendar-feed", async (c) => {
+    const sessionId = getCookie(c, SESSION_COOKIE_NAME);
+    const session = sessionId ? await getSessionMeta(c.env, sessionId) : null;
+    if (!session) return c.json({ error: "Unauthorized" }, 401);
+
+    const calendarToken = await issueCalendarToken(c.env, session.userId);
+    return c.json({ url: calendarFeedUrl(c, calendarToken) });
   })
   .post("/login", zValidator("form", loginSchema), async (c) => {
     const { otp } = c.req.valid("form");
@@ -868,6 +909,31 @@ export const apiRouter = new Hono<{ Bindings: Env }>()
     if (!params) return c.notFound();
 
     return c.redirect(buildBookingGoogleCalendarUrl(params), 302);
+  })
+  // Public for a harder reason than the two above: Google and Apple poll this
+  // from their own servers, with no cookie jar and no way to be prompted for
+  // one, so the token in the path has to be the whole of the authentication.
+  // The `.ics` suffix is cosmetic — some clients sniff the extension before
+  // they trust the Content-Type — and the token is matched as hex so a
+  // malformed URL never reaches the database.
+  .get("/calendar/feed/:token{[0-9a-f]+\\.ics}", async (c) => {
+    const calendarToken = c.req.param("token").replace(/\.ics$/, "");
+    const userId = await getUserIdByCalendarToken(c.env, calendarToken);
+    // A rotated-away token is indistinguishable from one that never existed,
+    // which is the point: revocation and a wrong guess look the same.
+    if (!userId) return c.notFound();
+
+    const events = await listSubscriberBookingEvents(c.env, userId);
+
+    return c.body(buildCalendarFeedIcs(events, { calendarName: "æme" }), 200, {
+      // No `Content-Disposition`: this is subscribed to in place, not
+      // downloaded like a single booking's invitation.
+      "Content-Type": "text/calendar; charset=utf-8",
+      // The URL is a credential, so it must not come to rest in a shared
+      // cache, and a stale feed is worse than a slow one.
+      "Cache-Control": "private, no-cache, no-store",
+      "X-Robots-Tag": "noindex",
+    });
   });
 
 if (import.meta.env.DEV) {

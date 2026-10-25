@@ -66,3 +66,51 @@ export const setUserColor = async (env: Env, userId: string, color: string) => {
   const db = createDb(env);
   await db.update(usersTable).set({ color }).where(eq(usersTable.userId, userId));
 };
+
+/** 128 bits of hex — the calendar feed's only credential, so it has to be
+ * unguessable rather than merely unique. Matches the `users_calendar_token_hex`
+ * check constraint's shape. */
+const newCalendarToken = () =>
+  [...crypto.getRandomValues(new Uint8Array(16))]
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
+
+export const getCalendarToken = async (env: Env, userId: string): Promise<string | null> => {
+  const db = createDb(env);
+
+  const [user] = await db
+    .select({ calendarToken: usersTable.calendarToken })
+    .from(usersTable)
+    .where(eq(usersTable.userId, userId));
+
+  return user?.calendarToken ?? null;
+};
+
+/** Mints a calendar token for a user, replacing whatever they had. Both
+ * "subscribe me" and "that link got out, revoke it" are this one operation:
+ * the old value stops resolving the moment the new one is written, and any
+ * calendar still polling the old URL starts getting a 404. */
+export const issueCalendarToken = async (env: Env, userId: string): Promise<string> => {
+  const db = createDb(env);
+  const calendarToken = newCalendarToken();
+
+  await db.update(usersTable).set({ calendarToken }).where(eq(usersTable.userId, userId));
+
+  return calendarToken;
+};
+
+/** The subscriber behind a feed URL, or null if the token is unknown — which
+ * includes every token that has since been rotated away. */
+export const getUserIdByCalendarToken = async (
+  env: Env,
+  calendarToken: string,
+): Promise<string | null> => {
+  const db = createDb(env);
+
+  const [user] = await db
+    .select({ userId: usersTable.userId })
+    .from(usersTable)
+    .where(eq(usersTable.calendarToken, calendarToken));
+
+  return user?.userId ?? null;
+};

@@ -1,16 +1,38 @@
+const MAX_LINE_OCTETS = 75;
+
+const utf8 = new TextEncoder();
+const octetLength = (value: string) => utf8.encode(value).length;
+
 /** RFC 5545 requires long lines folded at 75 octets, with continuation
  * lines starting with a space. Most calendar apps tolerate unfolded lines,
- * but descriptions can get long, so fold properly for compatibility. */
+ * but descriptions can get long, so fold properly for compatibility.
+ *
+ * Octets, not characters: a description full of Norwegian is two bytes per
+ * vowel, and slicing by string index would both overshoot the limit and —
+ * for anything outside the BMP, an emoji in a booking note being the way
+ * that actually happens — cut a surrogate pair in half and put invalid UTF-8
+ * on the wire. Iterating the string yields whole code points, so a character
+ * moves to the next line intact. The leading space counts toward the
+ * continuation line's own 75. */
 const foldIcsLine = (line: string): string => {
-  if (line.length <= 75) return line;
+  if (octetLength(line) <= MAX_LINE_OCTETS) return line;
 
   const parts: string[] = [];
-  let rest = line;
-  while (rest.length > 75) {
-    parts.push(rest.slice(0, 75));
-    rest = " " + rest.slice(75);
+  let current = "";
+  let currentOctets = 0;
+
+  for (const char of line) {
+    const size = octetLength(char);
+    if (currentOctets + size > MAX_LINE_OCTETS) {
+      parts.push(current);
+      current = " ";
+      currentOctets = 1;
+    }
+    current += char;
+    currentOctets += size;
   }
-  parts.push(rest);
+
+  parts.push(current);
   return parts.join("\r\n");
 };
 
@@ -82,13 +104,15 @@ const buildBookingEventFields = (params: BookingEventParams) => {
   return { description, locationText };
 };
 
-export const buildBookingIcs = (params: BookingEventParams) => {
+/** One booking as a VEVENT, shared by the single-event download and the
+ * subscription feed so a booking reads the same either way. The UID is the
+ * booking's own id, which is what lets a subscribed calendar recognise an
+ * event it already has and update it in place instead of adding a second
+ * copy on every refetch. */
+const buildBookingVevent = (params: BookingEventParams) => {
   const { description, locationText } = buildBookingEventFields(params);
 
   const lines = [
-    "BEGIN:VCALENDAR",
-    "VERSION:2.0",
-    "PRODID:-//aeme//booking//EN",
     "BEGIN:VEVENT",
     `UID:${params.bookingId}@aeme.karl.run`,
     `DTSTAMP:${toIcsTimestamp(params.created)}`,
@@ -100,10 +124,41 @@ export const buildBookingIcs = (params: BookingEventParams) => {
   if (description) lines.push(`DESCRIPTION:${escapeIcsText(description)}`);
   if (locationText) lines.push(`LOCATION:${escapeIcsText(locationText)}`);
 
-  lines.push("END:VEVENT", "END:VCALENDAR");
+  lines.push("END:VEVENT");
 
-  return lines.map(foldIcsLine).join("\r\n") + "\r\n";
+  return lines;
 };
+
+const wrapVcalendar = (lines: string[]) =>
+  ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//aeme//booking//EN", ...lines, "END:VCALENDAR"]
+    .map(foldIcsLine)
+    .join("\r\n") + "\r\n";
+
+export const buildBookingIcs = (params: BookingEventParams) =>
+  wrapVcalendar(buildBookingVevent(params));
+
+/** The whole subscription feed: every booking the subscriber is on, in one
+ * document that replaces their calendar's copy of it on each fetch. A booking
+ * they've been taken off — or that was deleted outright — is simply absent
+ * from the next fetch, which is how a subscribed calendar is told to drop it;
+ * no cancellation tombstone is needed.
+ *
+ * `METHOD:PUBLISH` marks this as a published calendar rather than an
+ * invitation, so clients render it read-only instead of offering to RSVP on
+ * the subscriber's behalf. The two refresh hints ask for hourly polling —
+ * Apple and Outlook take some notice of them, Google ignores them and polls
+ * on its own schedule. */
+export const buildCalendarFeedIcs = (
+  events: BookingEventParams[],
+  params: { calendarName: string },
+) =>
+  wrapVcalendar([
+    "METHOD:PUBLISH",
+    `X-WR-CALNAME:${escapeIcsText(params.calendarName)}`,
+    "REFRESH-INTERVAL;VALUE=DURATION:PT1H",
+    "X-PUBLISHED-TTL:PT1H",
+    ...events.flatMap(buildBookingVevent),
+  ]);
 
 /** Google Calendar's "create event" template URL. Times are passed without a
  * `Z` suffix or `ctz`, which Google interprets in the user's own calendar

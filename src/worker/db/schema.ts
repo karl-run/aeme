@@ -10,6 +10,14 @@ export const usersTable = sqliteTable(
      * Handed out from `USER_COLOR_PALETTE` when the row is created (see
      * `ensureUserStatement`), and changeable by the user afterwards. */
     color: text().notNull(),
+    /** Secret that stands in for a session on the calendar subscription feed:
+     * Google and Apple fetch that URL from their own servers, with no cookie
+     * and no way to be prompted for one, so the token in the path is the only
+     * credential there is. 32 lowercase hex characters (128 bits), minted on
+     * request rather than at sign-up — a user who never subscribes never has
+     * one — and replaced wholesale to revoke, which is why it's unique rather
+     * than a primary key: the old value must be free to disappear. */
+    calendarToken: text("calendar_token"),
     created: text().notNull(),
   },
   (t) => [
@@ -17,6 +25,14 @@ export const usersTable = sqliteTable(
       "users_color_hex",
       sql`${t.color} GLOB '#[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]'`,
     ),
+    check(
+      "users_calendar_token_hex",
+      sql`${t.calendarToken} IS NULL OR (length(${t.calendarToken}) = 32 AND ${t.calendarToken} NOT GLOB '*[^a-f0-9]*')`,
+    ),
+    // The feed route has nothing but the token to go on, so this is the index
+    // it looks the subscriber up by. Unique on a nullable column, which
+    // SQLite lets hold any number of NULLs — the users who never subscribed.
+    uniqueIndex("users_calendar_token").on(t.calendarToken),
   ],
 );
 

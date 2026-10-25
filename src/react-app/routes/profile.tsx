@@ -4,6 +4,7 @@ import { CheckIcon } from "lucide-react";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 
 import { USER_COLOR_PALETTE, USER_COLORS } from "../../worker/users/colors.ts";
+import { CalendarSubscription } from "../components/CalendarSubscription.tsx";
 import { PageContainer } from "../components/PageContainer.tsx";
 import { PageLoader } from "../components/PageLoader.tsx";
 import { Section } from "../components/Section.tsx";
@@ -161,6 +162,13 @@ const Profile = () => {
 
         <Section title="Your color">
           <ColorPicker name={currentSession.userName} color={currentSession.userColor} />
+        </Section>
+
+        <Section
+          title="Your calendar"
+          description="Subscribe to the bookings you're on from your own calendar app."
+        >
+          <CalendarSubscription />
         </Section>
 
         <Section
