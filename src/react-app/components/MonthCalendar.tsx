@@ -9,6 +9,7 @@ import {
   startOfWeek,
 } from "date-fns";
 
+import { initialOf, textColorOn } from "../lib/user-color.ts";
 import type { CalendarBooking } from "../queries/calendar.ts";
 import { BookingDetailsDialog } from "./BookingDetailsDialog.tsx";
 
@@ -39,6 +40,38 @@ export const monthGridRange = (month: Date) => {
 const WEEKDAY_LABELS = monthGridDays(new Date(2024, 0, 1))
   .slice(0, 7)
   .map((day) => day.toLocaleDateString(undefined, { weekday: "short" }));
+
+/** Everyone goes by their first name here — a cell is a few characters
+ * wide, and a surname is the part you don't need to tell two people apart. */
+const firstName = (name: string) => name.trim().split(/\s+/)[0] ?? name;
+
+/** One badge per person on the booking, in the color they picked on their
+ * profile. A guest has no profile, so they get the card's own muted chip —
+ * which also reads as "not one of us", which is what a guest is. */
+const AttendeeBadges = ({ attendees }: { attendees: CalendarBooking["attendees"] }) => (
+  <span className="mt-0.5 flex flex-wrap gap-0.5">
+    {attendees.map((attendee) => (
+      <span
+        key={attendee.userId ?? `guest:${attendee.name}`}
+        className={cn(
+          // Tight enough on a phone that two initials share a line.
+          "rounded-sm px-0.5 text-[9px] leading-[14px] font-medium sm:px-1",
+          !attendee.color && "border border-border bg-muted text-muted-foreground",
+        )}
+        style={
+          attendee.color
+            ? { backgroundColor: attendee.color, color: textColorOn(attendee.color) }
+            : undefined
+        }
+      >
+        {/* A phone's column fits about five characters, so there it's the
+            initial alone. */}
+        <span className="sm:hidden">{initialOf(attendee.name)}</span>
+        <span className="hidden sm:inline">{firstName(attendee.name)}</span>
+      </span>
+    ))}
+  </span>
+);
 
 const byDate = (bookings: CalendarBooking[]) => {
   const map = new Map<string, CalendarBooking[]>();
@@ -126,7 +159,7 @@ export const MonthCalendar = ({ month, bookings }: Props) => {
                       title={`${booking.from}–${booking.to} · ${booking.activityTitle}`}
                       aria-label={`${booking.from}–${booking.to} ${booking.activityTitle}`}
                       className={cn(
-                        "w-full truncate rounded border px-1 py-0.5 text-left text-[10px] leading-4 transition-colors sm:text-[11px]",
+                        "w-full rounded border px-1 py-0.5 text-left text-[10px] leading-4 transition-colors sm:text-[11px]",
                         past
                           ? "border-border bg-muted/50 text-muted-foreground hover:bg-muted"
                           : "border-green-600/30 bg-green-600/10 hover:bg-green-600/20",
@@ -135,8 +168,13 @@ export const MonthCalendar = ({ month, bookings }: Props) => {
                       {/* A phone's column is about five characters wide, so
                           the title drops and the time stays: when it is is
                           the half you can't get from the cell it's in. */}
-                      <span className="tabular-nums opacity-70">{booking.from}</span>
-                      <span className="hidden sm:inline"> {booking.activityTitle}</span>
+                      <span className="block truncate">
+                        <span className="tabular-nums opacity-70">{booking.from}</span>
+                        <span className="hidden sm:inline"> {booking.activityTitle}</span>
+                      </span>
+                      {booking.attendees.length > 0 && (
+                        <AttendeeBadges attendees={booking.attendees} />
+                      )}
                     </button>
                   }
                 />

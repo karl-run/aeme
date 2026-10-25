@@ -370,12 +370,18 @@ const selectAttendees = (db: Db, bookingIds: SQLWrapper) =>
       bookingId: activityBookingAttendeesTable.bookingId,
       userId: activityBookingAttendeesTable.userId,
       name: sql<string>`coalesce(${usersTable.name}, ${activityBookingAttendeesTable.name})`,
+      // Null for a guest, who has no profile to pick one on.
+      color: usersTable.color,
     })
     .from(activityBookingAttendeesTable)
     .leftJoin(usersTable, eq(usersTable.userId, activityBookingAttendeesTable.userId))
     .where(inArray(activityBookingAttendeesTable.bookingId, bookingIds));
 
 type AttendeeRow = Awaited<ReturnType<ReturnType<typeof selectAttendees>["execute"]>>[number];
+
+/** Someone on a booking: a channel member with their profile color, or a
+ * guest, who has a name and nothing else. */
+type Attendee = { userId: string | null; name: string; color: string | null };
 
 /** Turns booking rows into what the client renders — attendees named and the
  * fixed location folded into one object. Returned in the order it was given,
@@ -593,6 +599,17 @@ export const listChannelBookingsInRange = async (
   const activityById = new Map(activityRows.map((activity) => [activity.id, activity]));
   const shaped = shapeBookings(bookingRows, attendeeRows);
 
+  // The same people `shapeBookings` names, with the color each one picked —
+  // the calendar draws them as badges rather than a line of text, and a
+  // color per person is what makes a day readable at a glance. It's the one
+  // column `attendeeNames` can't carry, so they travel alongside it.
+  const attendeesByBooking = new Map<string, Attendee[]>();
+  for (const row of attendeeRows) {
+    const list = attendeesByBooking.get(row.bookingId) ?? [];
+    list.push({ userId: row.userId, name: row.name, color: row.color });
+    attendeesByBooking.set(row.bookingId, list);
+  }
+
   // Paired by index with the rows they were shaped from — `shapeBookings`
   // keeps the order it was given.
   return bookingRows.map((row, index) => {
@@ -603,6 +620,7 @@ export const listChannelBookingsInRange = async (
       activityId: row.activityId,
       activityTitle: activity?.title ?? "",
       idealMemberCount: activity?.idealMemberCount ?? null,
+      attendees: attendeesByBooking.get(row.id) ?? [],
     };
   });
 };
