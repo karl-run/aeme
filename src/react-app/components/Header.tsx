@@ -36,9 +36,13 @@ export const Header = () => {
           shoves the whole page down. 3.5rem = py-3 + h-8. */}
       <PageContainer className="flex min-h-14 items-center justify-between px-4 py-3">
         <div className="flex items-center gap-3">
-          <Link to="/" className="flex items-center gap-2 font-semibold">
+          {/* Stretched through the bar's padding so the whole height of it
+              is clickable, not just the 24px the logo is tall. */}
+          <Link to="/" className="-my-3 flex items-center gap-2 self-stretch py-3 font-semibold">
             <img src="/logo-big.png" alt="" className="size-6 rounded-sm" />
-            æme
+            {/* Lifted a pixel: "æme" is all x-height, so centered on its line
+                box it reads lower than the capitalized labels beside it. */}
+            <span className="-translate-y-px">æme</span>
           </Link>
           {session && (
             <Button
