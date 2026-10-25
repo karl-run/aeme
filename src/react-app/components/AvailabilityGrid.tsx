@@ -17,8 +17,10 @@ import { PersonSegments } from "./PersonSegments.tsx";
 import { Button } from "./ui/button.tsx";
 
 const HOURS = Array.from({ length: 16 }, (_, i) => i + 8); // 08:00–23:00, each cell covers one hour
-const WINDOW_DAYS = 7;
+const MIN_VISIBLE_DAYS = 7;
+const LABEL_COLUMN_PX = 64; // 4rem — what the hour axis needs, measured generously
 const DAY_COLUMN_MIN_PX = 72; // 4.5rem — must fit a nowrap date label without overlapping neighbors
+const DAY_COLUMN_MAX_PX = 80; // 5rem — wider cells than this just waste the width
 const HOUR_CELL_PX = 24; // h-6
 
 const toDateStr = (d: Date) => {
@@ -106,8 +108,30 @@ export const AvailabilityGrid = ({
       : null;
 
   const [windowStart, setWindowStart] = useState(today);
+  // How many days fit side by side. A wide card shows more of the calendar
+  // rather than stretching one week across it — the same rule the dashboard
+  // board follows, so the two read as the same calendar.
+  const [visibleDays, setVisibleDays] = useState(MIN_VISIBLE_DAYS);
+  const containerRef = useRef<HTMLDivElement>(null);
 
-  const days = fixedDays ?? Array.from({ length: WINDOW_DAYS }, (_, i) => addDays(windowStart, i));
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+
+    const recompute = () => {
+      const fit = Math.floor((el.clientWidth - LABEL_COLUMN_PX) / DAY_COLUMN_MAX_PX);
+      setVisibleDays(Math.max(MIN_VISIBLE_DAYS, fit));
+    };
+
+    // Deliberately not measured synchronously here: right after mount
+    // `clientWidth` can still report a pre-stylesheet size, whereas
+    // ResizeObserver's first callback is guaranteed to be post-layout.
+    const observer = new ResizeObserver(recompute);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  const days = fixedDays ?? Array.from({ length: visibleDays }, (_, i) => addDays(windowStart, i));
 
   const canGoPrev = !fixedDays && windowStart > today;
   const canGoNext = !fixedDays;
@@ -185,7 +209,7 @@ export const AvailabilityGrid = ({
   }, []);
 
   return (
-    <div className="flex flex-col gap-3">
+    <div ref={containerRef} className="flex flex-col gap-3">
       {!fixedDays && (
         <div className="flex items-center justify-between">
           <Button
@@ -193,18 +217,18 @@ export const AvailabilityGrid = ({
             variant="outline"
             size="sm"
             disabled={!canGoPrev}
-            onClick={() => setWindowStart((w) => addDays(w, -WINDOW_DAYS))}
+            onClick={() => setWindowStart((w) => addDays(w, -visibleDays))}
           >
-            Previous week
+            Previous
           </Button>
           <Button
             type="button"
             variant="outline"
             size="sm"
             disabled={!canGoNext}
-            onClick={() => setWindowStart((w) => addDays(w, WINDOW_DAYS))}
+            onClick={() => setWindowStart((w) => addDays(w, visibleDays))}
           >
-            Next week
+            Next
           </Button>
         </div>
       )}
@@ -308,6 +332,11 @@ export const AvailabilityGrid = ({
           className="-m-3 grid select-none overflow-x-auto p-3"
           style={{
             gridTemplateColumns: `auto repeat(${days.length}, minmax(${DAY_COLUMN_MIN_PX}px, 1fr))`,
+            // The columns still share whatever width there is, but the grid
+            // stops growing once they'd pass `DAY_COLUMN_MAX_PX` — a week
+            // stretched across a wide card reads as a different calendar than
+            // the board's, and the fitted day count is what fills the rest.
+            maxWidth: LABEL_COLUMN_PX + days.length * DAY_COLUMN_MAX_PX,
           }}
         >
           <div />

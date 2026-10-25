@@ -27,6 +27,12 @@ import { useSessionQuery, useViewer } from "../queries/session.ts";
 // behaves the same.
 const SAVE_DEBOUNCE_MS = 600;
 
+/** Text-heavy panels stay at reading width while the page itself is as wide
+ * as the dashboard. Only the header and the calendar under it spend that
+ * extra width, and only on an ongoing activity, where the calendar is the
+ * same rolling one the dashboard board shows. */
+const READING_WIDTH = "max-w-prose";
+
 const formatBookingDate = (date: string) =>
   new Date(`${date}T00:00:00`).toLocaleDateString(undefined, {
     weekday: "short",
@@ -172,10 +178,14 @@ const ActivityDetail = () => {
     (a.date + a.from).localeCompare(b.date + b.from),
   );
   const totalBookings = bookings.length + activity.pastBookingCount;
+  // A one-off's grid is a fixed handful of proposed days, which has nothing
+  // to do with the dashboard's rolling calendar and nothing to gain from the
+  // width — so it keeps the column the rest of the page sits in.
+  const calendarWidth = activity.persistent ? "" : READING_WIDTH;
 
   return (
     <PageContainer className="p-2 pb-10 md:px-6">
-      <div className="flex w-full max-w-prose flex-col items-start gap-4">
+      <div className="flex w-full flex-col items-start gap-4">
         <Link
           to="/"
           className="flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
@@ -184,9 +194,11 @@ const ActivityDetail = () => {
           Back to dashboard
         </Link>
 
-        <header className="flex w-full flex-col gap-3">
+        <header className={`flex w-full flex-col gap-3 ${calendarWidth}`}>
           <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
-            <div className="flex min-w-0 flex-col gap-1">
+            {/* Capped even when the header isn't: a description shouldn't run
+                the whole width of the page just because the calendar does. */}
+            <div className={`flex min-w-0 flex-col gap-1 ${READING_WIDTH}`}>
               <div className="flex items-center gap-2">
                 <h1 className="text-2xl font-semibold">{activity.title}</h1>
                 {isOwner && (
@@ -243,6 +255,7 @@ const ActivityDetail = () => {
         </header>
 
         <Section
+          className={calendarWidth}
           title={closed ? "Your response" : "When can you make it?"}
           description={
             closed
@@ -345,6 +358,7 @@ const ActivityDetail = () => {
         </Section>
 
         <Section
+          className={READING_WIDTH}
           title="Bookings"
           description={
             totalBookings === 0
@@ -398,6 +412,7 @@ const ActivityDetail = () => {
 
         {activity.persistent && (
           <Section
+            className={READING_WIDTH}
             title="Looking back"
             description="Who's been joining, and where, across the bookings that have already happened."
           >
@@ -405,12 +420,20 @@ const ActivityDetail = () => {
           </Section>
         )}
 
-        <Section title="Who can make it" description="Everyone's answers, day by day.">
+        <Section
+          className={READING_WIDTH}
+          title="Who can make it"
+          description="Everyone's answers, day by day."
+        >
           <ResponderBreakdown activity={activity} />
         </Section>
 
         {activity.persistent && (
-          <Section title="Locations" description="Places this happens, ready to pick when booking.">
+          <Section
+            className={READING_WIDTH}
+            title="Locations"
+            description="Places this happens, ready to pick when booking."
+          >
             <ActivityLocations activity={activity} canEdit={isOwner} />
           </Section>
         )}
@@ -419,7 +442,7 @@ const ActivityDetail = () => {
           <Section
             title="Delete activity"
             description="Made this by mistake, or in the wrong channel? There's no other way to remove it."
-            className="border-destructive/30 bg-destructive/5"
+            className={`${READING_WIDTH} border-destructive/30 bg-destructive/5`}
           >
             <div>
               <DeleteActivityDialog
