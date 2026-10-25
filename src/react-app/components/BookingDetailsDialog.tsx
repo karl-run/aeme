@@ -33,7 +33,7 @@ type Props = {
   /** Advisory headcount, shown alongside the attendee count as "N/ideal". */
   idealMemberCount?: number | null;
   /** Where the edit link should return to once it's done. */
-  from: "home" | "activity";
+  from: "home" | "activity" | "calendar";
   /** Whether the booking's owner is offered the edit link. False for a past
    * booking shown from the history: the edit screen reads the booking out of
    * the dashboard payload, which only carries what's still to come. */

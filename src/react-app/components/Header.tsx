@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { CheckIcon, ChevronDownIcon } from "lucide-react";
+import { CalendarDaysIcon, CheckIcon, ChevronDownIcon } from "lucide-react";
 
 import {
   useLogoutMutation,
@@ -40,6 +40,20 @@ export const Header = () => {
             <img src="/logo-big.png" alt="" className="size-6 rounded-sm" />
             æme
           </Link>
+          {session && (
+            <Button
+              render={<Link to="/calendar" search={{}} />}
+              nativeButton={false}
+              variant="ghost"
+              size="sm"
+              className="text-zinc-400"
+            >
+              <CalendarDaysIcon data-icon="inline-start" />
+              {/* The bar is already tight on a phone — there the icon has to
+                  carry it. */}
+              <span className="hidden sm:inline">Calendar</span>
+            </Button>
+          )}
           {session && channels && channels.length > 1 && (
             <DropdownMenu>
               <DropdownMenuTrigger

@@ -10,8 +10,11 @@ import { useActivitiesQuery } from "../queries/activities.ts";
 
 /** Where to go once the booking is saved or abandoned. Booking started from
  * the dashboard returns there; started from an activity's page it returns to
- * that page, so you land back on the availability you were reading. */
-type ReturnTo = "home" | "activity";
+ * that page, so you land back on the availability you were reading; started
+ * from the calendar it returns to the calendar, on the current month rather
+ * than the month you were browsing — the booking's own month is the one
+ * worth landing on, and that's where it now is. */
+type ReturnTo = "home" | "activity" | "calendar";
 
 type BookSearch = {
   /** YYYY-MM-DD pre-filled into the form. */
@@ -39,6 +42,7 @@ const BookActivity = () => {
 
   const goBack = () => {
     if (from === "activity") navigate({ to: "/activities/$activityId", params: { activityId } });
+    else if (from === "calendar") navigate({ to: "/calendar", search: {} });
     else navigate({ to: "/" });
   };
 
@@ -130,7 +134,10 @@ export const Route = createFileRoute("/activities/$activityId_/book")({
   validateSearch: (search: Record<string, unknown>): BookSearch => ({
     date: typeof search.date === "string" ? search.date : undefined,
     bookingId: typeof search.bookingId === "string" ? search.bookingId : undefined,
-    from: search.from === "activity" ? "activity" : search.from === "home" ? "home" : undefined,
+    from:
+      search.from === "activity" || search.from === "home" || search.from === "calendar"
+        ? search.from
+        : undefined,
   }),
   component: BookActivity,
 });

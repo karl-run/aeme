@@ -13,6 +13,7 @@ import {
   getActivityById,
   listActivitiesForChannel,
   getBookingStatsForActivity,
+  listChannelBookingsInRange,
   listPastBookingsForActivity,
   updateActivity,
 } from "../activities/activity.ts";
@@ -65,6 +66,32 @@ const switchChannelSchema = z.object({
 const bookingHistoryQuerySchema = z.object({
   cursor: z.string().optional(),
 });
+
+/** The calendar's visible grid: a month plus the days either side of it
+ * that fill the first and last week. Validated as a window rather than taken
+ * as a month so the server never has to guess which weekday a week starts
+ * on — that's the viewer's locale, and the overflow days differ with it.
+ *
+ * The span cap is what keeps "one month at a time" true: six weeks is the
+ * most a month grid can span, and without a bound this route would happily
+ * read out a decade. */
+const CALENDAR_MAX_SPAN_DAYS = 45;
+
+const calendarRangeSchema = z
+  .object({
+    from: z.iso.date(),
+    to: z.iso.date(),
+  })
+  .refine((range) => range.from <= range.to, {
+    message: "The range ends before it starts.",
+    path: ["to"],
+  })
+  .refine(
+    (range) =>
+      (Date.parse(`${range.to}T00:00:00Z`) - Date.parse(`${range.from}T00:00:00Z`)) / 86_400_000 <=
+      CALENDAR_MAX_SPAN_DAYS,
+    { message: "That's more than one month of calendar.", path: ["to"] },
+  );
 
 const loginSchema = z.object({
   otp: z
@@ -356,6 +383,20 @@ export const apiRouter = new Hono<{ Bindings: Env }>()
 
     const activities = await listActivitiesForChannel(c.env, session.channelId, session.userId);
     return c.json({ activities });
+  })
+  // Every booking in the channel across the dates the calendar page is
+  // showing. Not served off `GET /activities`: that payload is scoped to one
+  // activity at a time and drops a persistent activity's finished bookings
+  // entirely, and the calendar's whole point is browsing back through them.
+  .get("/calendar", zValidator("query", calendarRangeSchema), async (c) => {
+    const sessionId = getCookie(c, SESSION_COOKIE_NAME);
+    const session = sessionId ? await getSessionMeta(c.env, sessionId) : null;
+    if (!session) return c.json({ error: "Unauthorized" }, 401);
+
+    const { from, to } = c.req.valid("query");
+    const bookings = await listChannelBookingsInRange(c.env, session.channelId, { from, to });
+
+    return c.json({ bookings });
   })
   .put("/activities/:id", zValidator("json", updateActivitySchema), async (c) => {
     const sessionId = getCookie(c, SESSION_COOKIE_NAME);

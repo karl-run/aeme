@@ -17,7 +17,7 @@ type Props = {
   /** Advisory headcount, shown alongside the attendee count as "N/ideal". */
   idealMemberCount?: number | null;
   /** Where the edit link should return to once it's done. */
-  from: "home" | "activity";
+  from: "home" | "activity" | "calendar";
 };
 
 export const BookingInfoPopover = ({

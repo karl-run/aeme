@@ -7,6 +7,7 @@ import {
   inArray,
   isNotNull,
   lt,
+  lte,
   or,
   type SQLWrapper,
   sql,
@@ -519,6 +520,91 @@ export const listPastBookingsForActivity = async (
     bookings: shapeBookings(page, attendeeRows),
     nextCursor: hasMore && last ? { date: last.date, from: last.from, id: last.id } : null,
   };
+};
+
+/** Every booking in the channel between two dates, inclusive, earliest
+ * first — what the calendar page draws one month at a time.
+ *
+ * Channel-wide and date-bounded, which is the opposite of how the rest of
+ * this file reads bookings (per activity, split into past and upcoming), so
+ * it's its own query rather than a filter over the dashboard payload: that
+ * one carries no finished bookings at all for a persistent activity, and
+ * browsing back through the year is most of what a calendar is for.
+ *
+ * The range is the client's visible grid, not a calendar month — a month
+ * view shows the days either side of it, and those bookings should be on
+ * screen too. Bookings of an archived activity are left out, as everywhere
+ * else.
+ *
+ * Each booking carries the activity it belongs to: the calendar shows every
+ * activity at once, so the title is what tells two bookings on the same day
+ * apart, and `idealMemberCount` is there for the "3/4 going" the details
+ * dialog shows. */
+export const listChannelBookingsInRange = async (
+  env: Env,
+  channelId: string,
+  range: { from: string; to: string },
+) => {
+  const db = createDb(env);
+
+  const inChannel = and(
+    eq(activitiesTable.channelId, channelId),
+    eq(activitiesTable.archived, false),
+  );
+  // A subquery rather than ids read back first, so all three statements can
+  // go in one batch — see `listActivitiesForChannel`.
+  const channelActivityIds = db
+    .select({ id: activitiesTable.id })
+    .from(activitiesTable)
+    .where(inChannel);
+
+  const inRange = and(
+    inArray(activityBookingsTable.activityId, channelActivityIds),
+    gte(activityBookingsTable.date, range.from),
+    lte(activityBookingsTable.date, range.to),
+  );
+  const rangeBookingIds = db
+    .select({ id: activityBookingsTable.id })
+    .from(activityBookingsTable)
+    .where(inRange);
+
+  const [bookingRows, attendeeRows, activityRows] = await db.batch([
+    selectBookings(db)
+      .where(inRange)
+      .orderBy(
+        asc(activityBookingsTable.date),
+        asc(activityBookingsTable.from),
+        asc(activityBookingsTable.id),
+      ),
+    selectAttendees(db, rangeBookingIds),
+    // The titles, fetched whole rather than joined onto every booking row: a
+    // channel has a handful of activities and a month has many more
+    // bookings, so this is the smaller thing to send twice.
+    db
+      .select({
+        id: activitiesTable.id,
+        title: activitiesTable.title,
+        idealMemberCount: activitiesTable.idealMemberCount,
+      })
+      .from(activitiesTable)
+      .where(inChannel),
+  ]);
+
+  const activityById = new Map(activityRows.map((activity) => [activity.id, activity]));
+  const shaped = shapeBookings(bookingRows, attendeeRows);
+
+  // Paired by index with the rows they were shaped from — `shapeBookings`
+  // keeps the order it was given.
+  return bookingRows.map((row, index) => {
+    const activity = activityById.get(row.activityId);
+
+    return {
+      ...shaped[index],
+      activityId: row.activityId,
+      activityTitle: activity?.title ?? "",
+      idealMemberCount: activity?.idealMemberCount ?? null,
+    };
+  });
 };
 
 export const getActivityById = async (env: Env, id: string) => {
