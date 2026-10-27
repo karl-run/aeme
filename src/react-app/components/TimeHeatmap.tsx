@@ -5,6 +5,9 @@ import { scaleBand } from "@tanstack/charts/scales/band";
 import { scaleOrdinal } from "@tanstack/charts/scales/ordinal";
 import { tooltip } from "@tanstack/charts/tooltip";
 
+import { bucketOf, EMPTY, rampFor, stepsFor } from "../lib/heat-ramp.ts";
+import { HeatLegend } from "./HeatLegend.tsx";
+
 /** Like `CountBarChart.tsx`, this module is only ever reached through the
  * lazy import in `BookingStats.tsx` — see the note there. */
 
@@ -30,54 +33,11 @@ const WEEKDAYS = [
   { weekday: 7, label: "Sun" },
 ] as const;
 
-/** One hue, dark to light, because the card underneath is nearly black: on a
- * dark surface a sequential ramp runs the other way round, with the busiest
- * cell the brightest thing in the grid. Validated against the card
- * (`#1d161e`) as an ordinal ramp — monotone lightness, every adjacent step
- * at least 0.06 apart in OKLCH L, and the dimmest step still 2.64:1 against
- * the card so a single booking never reads as an empty cell. */
-const RAMP = ["#1d4ed8", "#3b82f6", "#60a5fa", "#93c5fd"] as const;
-
-/** Never played: the `muted` token, which sits just far enough off the card
- * to draw the grid without joining the ramp. A count of zero is a different
- * statement from a low count, so it gets a color outside the scale. */
-const EMPTY = "#2a212c";
-
 const HOUR_ROW_HEIGHT = 20;
 /** Room for the weekday labels above the grid. */
 const AXIS_HEIGHT = 28;
 /** Room for the hour labels down the left. */
 const HOUR_GUTTER = 42;
-
-/** How many steps of the ramp this grid uses: four, unless the busiest cell
- * holds fewer bookings than that, in which case every count gets a step of
- * its own and the legend reads 1, 2, 3 rather than inventing buckets no cell
- * can land in. The steps are sampled across the whole ramp rather than taken
- * off one end, so two of them are its darkest and its lightest and stay as
- * far apart as four would. */
-const stepsFor = (busiest: number) => Math.max(1, Math.min(RAMP.length, busiest));
-
-const rampFor = (steps: number) =>
-  Array.from(
-    { length: steps },
-    (_, i) => RAMP[Math.round((i * (RAMP.length - 1)) / Math.max(1, steps - 1))],
-  );
-
-/** Which step a count lands on, counting from 1; 0 is "never", which isn't
- * on the ramp at all. Step b covers the counts in
- * `((b-1)·busiest/steps, b·busiest/steps]`. */
-const bucketOf = (count: number, busiest: number) =>
-  count === 0 ? 0 : Math.min(stepsFor(busiest), Math.ceil((count / busiest) * stepsFor(busiest)));
-
-/** The counts a step covers, for the legend — the exact inverse of
- * `bucketOf`, so the labels partition the counts rather than overlapping at
- * every boundary. */
-const bucketRange = (bucket: number, busiest: number) => {
-  const steps = stepsFor(busiest);
-  const low = Math.floor(((bucket - 1) * busiest) / steps) + 1;
-  const high = Math.floor((bucket * busiest) / steps);
-  return low >= high ? `${high}` : `${low}–${high}`;
-};
 
 const formatHour = (hour: number) => `${String(hour).padStart(2, "0")}:00`;
 
@@ -202,31 +162,15 @@ export const TimeHeatmap = ({ cells, ariaLabel }: Props) => {
         }
       />
 
-      {/* The color scale spelled out: without it the grid shows a shape but
-          no magnitude, and the tooltip only reaches one cell at a time. */}
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 pl-[42px] text-xs text-muted-foreground">
-        <span>Bookings in that hour:</span>
-        <span className="flex items-center gap-1.5">
-          <span aria-hidden className="size-3 rounded-[2px]" style={{ backgroundColor: EMPTY }} />
-          none
-        </span>
-        {/* Nothing in the window means nothing for the ramp to stand for —
-            the caption below is the whole story in that case. */}
-        {busiest > 0 &&
-          steps.map((color, index) => (
-            <span key={color} className="flex items-center gap-1.5">
-              <span
-                aria-hidden
-                className="size-3 rounded-[2px]"
-                style={{ backgroundColor: color }}
-              />
-              {bucketRange(index + 1, busiest)}
-            </span>
-          ))}
-      </div>
+      <HeatLegend
+        caption="Bookings in that hour"
+        emptyLabel="none"
+        busiest={busiest}
+        gutter={HOUR_GUTTER}
+      />
 
       {hasOutside && (
-        <p className="pl-[42px] text-xs text-muted-foreground">
+        <p className="text-xs text-muted-foreground" style={{ paddingLeft: HOUR_GUTTER }}>
           Bookings outside 08:00–23:00 aren't shown.
         </p>
       )}

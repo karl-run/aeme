@@ -17,6 +17,15 @@ const TimeHeatmap = lazy(() =>
   import("./TimeHeatmap.tsx").then((m) => ({ default: m.TimeHeatmap })),
 );
 
+const CoAttendanceMatrix = lazy(() =>
+  import("./CoAttendanceMatrix.tsx").then((m) => ({ default: m.CoAttendanceMatrix })),
+);
+
+/** Fewer people than this and the matrix says nothing the regulars chart
+ * above it doesn't: two make a single cell, three make three. Four is where
+ * a grid starts to beat a list. */
+const MIN_MATRIX_PEOPLE = 4;
+
 type Props = {
   activityId: string;
   /** Past bookings, from the polled activity payload — lets the button say
@@ -54,6 +63,12 @@ export const BookingStats = ({ activityId, pastBookingCount }: Props) => {
   // One place used every time is a fact the list of locations already tells
   // you; a chart of a single full-width bar isn't worth the room.
   const showLocations = (stats.data?.locations.length ?? 0) > 1;
+
+  // An empty grid is its own kind of answer, but not an interesting one: a
+  // group where nobody has ever shared a booking gets no matrix at all.
+  const showPairs =
+    (stats.data?.attendance.length ?? 0) >= MIN_MATRIX_PEOPLE &&
+    (stats.data?.pairs.length ?? 0) > 0;
 
   return (
     <div className="flex flex-col gap-4">
@@ -115,6 +130,17 @@ export const BookingStats = ({ activityId, pastBookingCount }: Props) => {
                   ariaLabel="Bookings joined per person"
                 />
               </section>
+
+              {showPairs && stats.data && (
+                <section className="flex flex-col gap-1">
+                  <h3 className="text-sm font-semibold">Who plays with whom</h3>
+                  <CoAttendanceMatrix
+                    people={stats.data.attendance}
+                    pairs={stats.data.pairs}
+                    ariaLabel="Bookings shared by each pair of people"
+                  />
+                </section>
+              )}
 
               {showLocations && (
                 <section className="flex flex-col gap-1">

@@ -12,6 +12,7 @@ import {
   type SQLWrapper,
   sql,
 } from "drizzle-orm";
+import { alias } from "drizzle-orm/sqlite-core";
 
 import { BASE_URL, DISPLAY_TIME_ZONE } from "../constants.ts";
 import { todayInDisplayZone } from "../dates.ts";
@@ -857,6 +858,14 @@ export const deleteActivity = async (
   }
 };
 
+/** The identity a row is counted under: the id when there is one, and
+ * otherwise the typed name, trimmed and case-folded the way `foldByName`
+ * describes. `foldByName` and `foldPairs` have to agree on this exactly —
+ * the pair rows carry nothing but these keys, and the client looks each one
+ * up in the attendance list to find out whose it is. */
+const personKey = (id: string | null, name: string | null, prefix: string) =>
+  id ?? `${prefix}:${(name ?? "").trim().toLowerCase()}`;
+
 /** How many of this activity's finished bookings each person turned up to,
  * most-attended first.
  *
@@ -889,7 +898,7 @@ const foldByName = (
   const folded = new Map<string, { key: string; name: string; count: number; spelling: number }>();
 
   for (const row of rows) {
-    const key = row.id ?? `${prefix}:${row.name.toLowerCase()}`;
+    const key = personKey(row.id, row.name, prefix);
     const existing = folded.get(key);
 
     if (!existing) {
@@ -914,6 +923,38 @@ const foldByName = (
       .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name))
       .map(({ key, name, count }) => ({ key, name, count }))
   );
+};
+
+/** Co-attendance, folded the way `foldByName` folds the singles: one row
+ * per unordered pair, counted over the bookings both of them were on.
+ *
+ * SQLite has already done the pairing and the counting; what's left is the
+ * case-folding it can't do, which can merge two of its rows into one —
+ * "Silje" with Karl and "silje" with Karl are the same pair. Case-folding
+ * can also reorder a pair, so the ends are sorted again here rather than
+ * trusted from the `<` the join applied to the raw keys. */
+const foldPairs = (
+  rows: readonly {
+    leftId: string | null;
+    leftName: string | null;
+    rightId: string | null;
+    rightName: string | null;
+    count: number;
+  }[],
+) => {
+  const folded = new Map<string, { a: string; b: string; count: number }>();
+
+  for (const row of rows) {
+    const left = personKey(row.leftId, row.leftName, "guest");
+    const right = personKey(row.rightId, row.rightName, "guest");
+    const [a, b] = left < right ? [left, right] : [right, left];
+
+    const existing = folded.get(`${a}|${b}`);
+    if (existing) existing.count += row.count;
+    else folded.set(`${a}|${b}`, { a, b, count: row.count });
+  }
+
+  return [...folded.values()];
 };
 
 /** What the finished bookings of an activity add up to: how often each person
@@ -979,7 +1020,14 @@ export const getBookingStatsForActivity = async (env: Env, activityId: string) =
   const place = sql<string>`coalesce(${activityBookingsTable.locationId}, 'free:' || trim(${activityBookingsTable.location}))`;
   const count = sql<number>`count(*)`;
 
-  const [attendanceRows, locationRows, bookingCountRows, slotRows] = await db.batch([
+  // Two copies of the attendee list, to pair a booking's attendees up with
+  // each other. The same person expression is built over each.
+  const pairLeft = alias(activityBookingAttendeesTable, "pair_left");
+  const pairRight = alias(activityBookingAttendeesTable, "pair_right");
+  const leftPerson = sql<string>`coalesce(${pairLeft.userId}, 'guest:' || trim(${pairLeft.name}))`;
+  const rightPerson = sql<string>`coalesce(${pairRight.userId}, 'guest:' || trim(${pairRight.name}))`;
+
+  const [attendanceRows, locationRows, bookingCountRows, slotRows, pairRows] = await db.batch([
     db
       .select({
         id: activityBookingAttendeesTable.userId,
@@ -1043,6 +1091,34 @@ export const getBookingStatsForActivity = async (env: Env, activityId: string) =
         activityBookingsTable.from,
         activityBookingsTable.to,
       ),
+
+    // Who keeps turning up with whom: every unordered pair of people on the
+    // same booking, counted across the history. `<` on the person
+    // expressions is what makes a pair unordered — of the two mirrored rows
+    // it keeps one, and it drops the row pairing someone with themselves
+    // along with it.
+    //
+    // Quadratic in the size of a booking but linear in their number, which
+    // is the right way round: a booking holds a handful of people, and the
+    // second copy is reached through `activity_booking_attendees_booking_user`,
+    // which leads with the booking id. Names aren't selected — only the key
+    // matters here, and the client resolves it against `attendance`.
+    db
+      .select({
+        leftId: pairLeft.userId,
+        leftName: pairLeft.name,
+        rightId: pairRight.userId,
+        rightName: pairRight.name,
+        count,
+      })
+      .from(activityBookingsTable)
+      .innerJoin(pairLeft, eq(pairLeft.bookingId, activityBookingsTable.id))
+      .innerJoin(
+        pairRight,
+        and(eq(pairRight.bookingId, activityBookingsTable.id), sql`${leftPerson} < ${rightPerson}`),
+      )
+      .where(isPast)
+      .groupBy(leftPerson, rightPerson),
   ]);
 
   return {
@@ -1054,5 +1130,9 @@ export const getBookingStatsForActivity = async (env: Env, activityId: string) =
      * ISO-8601 (1 = Monday). Hours with nothing in them are left out — the
      * grid they're drawn in fills its own blanks. */
     times: toHourCells(slotRows),
+    /** One entry per pair of people who've been on a booking together, `a`
+     * and `b` being keys from `attendance` above — the client resolves them
+     * to names there rather than being sent every name a second time. */
+    pairs: foldPairs(pairRows),
   };
 };
