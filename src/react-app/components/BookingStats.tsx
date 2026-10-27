@@ -5,12 +5,16 @@ import { useBookingStatsQuery } from "../queries/stats.ts";
 import { LazyChunkBoundary } from "./LazyChunkBoundary.tsx";
 import { Button } from "./ui/button.tsx";
 
-/** The chart and `@tanstack/charts` behind it are a chunk of their own,
- * fetched when someone opens the stats — the dashboard and every other page
- * never pay for it. Both charts here are the same component, so opening the
- * panel costs one chunk however many tallies it ends up showing. */
+/** The charts and `@tanstack/charts` behind them are fetched when someone
+ * opens the stats — the dashboard and every other page never pay for it.
+ * The library itself is shared between the two lazy modules, so the panel
+ * pulls one copy of it however many charts end up on screen. */
 const CountBarChart = lazy(() =>
   import("./CountBarChart.tsx").then((m) => ({ default: m.CountBarChart })),
+);
+
+const TimeHeatmap = lazy(() =>
+  import("./TimeHeatmap.tsx").then((m) => ({ default: m.TimeHeatmap })),
 );
 
 type Props = {
@@ -122,6 +126,13 @@ export const BookingStats = ({ activityId, pastBookingCount }: Props) => {
                     valueLabel="Played there"
                     ariaLabel="Bookings per location"
                   />
+                </section>
+              )}
+
+              {stats.data.times.length > 0 && (
+                <section className="flex flex-col gap-1">
+                  <h3 className="text-sm font-semibold">Popular times</h3>
+                  <TimeHeatmap cells={stats.data.times} ariaLabel="Bookings by weekday and hour" />
                 </section>
               )}
             </div>

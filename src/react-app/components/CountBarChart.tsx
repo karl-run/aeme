@@ -4,9 +4,9 @@ import { scaleBand } from "@tanstack/charts/scales/band";
 import { scaleLinear } from "@tanstack/charts/scales/linear";
 import { tooltip } from "@tanstack/charts/tooltip";
 
-/** Everything `@tanstack/charts` pulls in lands in this module's chunk — see
- * the lazy import in `BookingStats.tsx`. Nothing else in the app may import
- * it, or the chart library joins the main bundle again. */
+/** `@tanstack/charts` may only be imported from a module that is itself
+ * lazily imported — this one and `TimeHeatmap.tsx` — or the chart library
+ * joins the main bundle again. See the lazy imports in `BookingStats.tsx`. */
 
 export type CountRow = {
   key: string;

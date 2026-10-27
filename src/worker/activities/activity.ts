@@ -926,6 +926,40 @@ const foldByName = (
  * never one per booking.
  *
  * Only past bookings count: what's still coming up hasn't happened yet. */
+/** A booking's span as the whole hours it touches: 18:00–20:00 occupies the
+ * 18:00 and 19:00 hours, 18:30–19:15 occupies 18:00 and 19:00. Half-open at
+ * the end, so a booking finishing on the hour doesn't claim the hour it
+ * finishes in — otherwise every two-hour booking would read as three.
+ *
+ * Grouped rows rather than one per booking: the same weekday and the same
+ * slot recur week after week, so the group-by collapses a season of padel
+ * into a handful of rows before any of this runs. */
+const toHourCells = (
+  rows: readonly { weekday: string | null; from: string; to: string; count: number }[],
+) => {
+  const minutes = (time: string) => Number(time.slice(0, 2)) * 60 + Number(time.slice(3, 5));
+  const counts = new Map<string, { weekday: number; hour: number; count: number }>();
+
+  for (const row of rows) {
+    // `strftime('%w')` counts from Sunday; ISO-8601 counts from Monday, which
+    // is how the week is read here and how the client orders the columns.
+    const sqliteWeekday = Number(row.weekday);
+    const weekday = sqliteWeekday === 0 ? 7 : sqliteWeekday;
+
+    const firstHour = Math.floor(minutes(row.from) / 60);
+    const endHour = Math.ceil(minutes(row.to) / 60);
+
+    for (let hour = firstHour; hour < endHour; hour++) {
+      const key = `${weekday}:${hour}`;
+      const cell = counts.get(key) ?? { weekday, hour, count: 0 };
+      cell.count += row.count;
+      counts.set(key, cell);
+    }
+  }
+
+  return [...counts.values()];
+};
+
 export const getBookingStatsForActivity = async (env: Env, activityId: string) => {
   const db = createDb(env);
   const today = todayInDisplayZone();
@@ -945,7 +979,7 @@ export const getBookingStatsForActivity = async (env: Env, activityId: string) =
   const place = sql<string>`coalesce(${activityBookingsTable.locationId}, 'free:' || trim(${activityBookingsTable.location}))`;
   const count = sql<number>`count(*)`;
 
-  const [attendanceRows, locationRows, bookingCountRows] = await db.batch([
+  const [attendanceRows, locationRows, bookingCountRows, slotRows] = await db.batch([
     db
       .select({
         id: activityBookingAttendeesTable.userId,
@@ -990,6 +1024,25 @@ export const getBookingStatsForActivity = async (env: Env, activityId: string) =
       .select({ count: sql<number>`count(*)` })
       .from(activityBookingsTable)
       .where(isPast),
+
+    // When they played, grouped by weekday and slot. The hour-by-hour
+    // expansion happens in the worker: SQLite would need a recursive CTE to
+    // walk a booking's span, and there are only ever a handful of distinct
+    // slots to walk.
+    db
+      .select({
+        weekday: sql<string>`strftime('%w', ${activityBookingsTable.date})`,
+        from: activityBookingsTable.from,
+        to: activityBookingsTable.to,
+        count,
+      })
+      .from(activityBookingsTable)
+      .where(isPast)
+      .groupBy(
+        sql`strftime('%w', ${activityBookingsTable.date})`,
+        activityBookingsTable.from,
+        activityBookingsTable.to,
+      ),
   ]);
 
   return {
@@ -997,5 +1050,9 @@ export const getBookingStatsForActivity = async (env: Env, activityId: string) =
     bookings: bookingCountRows[0]?.count ?? 0,
     attendance: foldByName(attendanceRows, "guest"),
     locations: foldByName(locationRows, "free"),
+    /** One entry per weekday/hour that was ever played, `weekday` being
+     * ISO-8601 (1 = Monday). Hours with nothing in them are left out — the
+     * grid they're drawn in fills its own blanks. */
+    times: toHourCells(slotRows),
   };
 };
