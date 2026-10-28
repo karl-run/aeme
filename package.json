@@ -19,7 +19,7 @@
     "bench:clean": "node bench/run.ts --clean"
   },
   "dependencies": {
-    "@base-ui/react": "^1.8.0",
+    "@base-ui/react": "^1.9.0",
     "@fontsource-variable/public-sans": "^5.3.0",
     "@hono/zod-validator": "^0.9.1",
     "@libsql/client": "^0.18.0",
