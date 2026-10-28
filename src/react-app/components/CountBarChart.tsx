@@ -6,7 +6,7 @@ import { tooltip } from "@tanstack/charts/tooltip";
 
 /** `@tanstack/charts` may only be imported from a module that is itself
  * lazily imported — this one and `TimeHeatmap.tsx` — or the chart library
- * joins the main bundle again. See the lazy imports in `BookingStats.tsx`. */
+ * joins the main bundle again. See the lazy imports in `BookingStatsDialog.tsx`. */
 
 export type CountRow = {
   key: string;

@@ -7,7 +7,7 @@ import { ActivityLocations } from "../components/ActivityLocations.tsx";
 import { AvailabilityGrid } from "../components/AvailabilityGrid.tsx";
 import { BookingDetailsDialog } from "../components/BookingDetailsDialog.tsx";
 import { BookingHistory } from "../components/BookingHistory.tsx";
-import { BookingStats } from "../components/BookingStats.tsx";
+import { BookingStatsDialog } from "../components/BookingStatsDialog.tsx";
 import { DeleteActivityDialog } from "../components/DeleteActivityDialog.tsx";
 import { EditActivityDialog } from "../components/EditActivityDialog.tsx";
 import { PageContainer } from "../components/PageContainer.tsx";
@@ -222,20 +222,30 @@ const ActivityDetail = () => {
                 <p className="text-sm text-muted-foreground">{activity.description}</p>
               )}
             </div>
-            <Button
-              render={
-                <Link
-                  to="/activities/$activityId/book"
-                  params={{ activityId: activity.id }}
-                  search={{ from: "activity" }}
+            <div className="flex shrink-0 items-center gap-2">
+              {/* A one-off's handful of bookings has nothing to look back
+                  on; the dashboard is for a standing activity's history. */}
+              {activity.persistent && (
+                <BookingStatsDialog
+                  activityId={activity.id}
+                  pastBookingCount={activity.pastBookingCount}
                 />
-              }
-              nativeButton={false}
-              size="sm"
-            >
-              <PlusIcon className="size-4" />
-              Book
-            </Button>
+              )}
+              <Button
+                render={
+                  <Link
+                    to="/activities/$activityId/book"
+                    params={{ activityId: activity.id }}
+                    search={{ from: "activity" }}
+                  />
+                }
+                nativeButton={false}
+                size="sm"
+              >
+                <PlusIcon className="size-4" />
+                Book
+              </Button>
+            </div>
           </div>
 
           <div className="flex flex-wrap gap-1.5">
@@ -409,16 +419,6 @@ const ActivityDetail = () => {
             idealMemberCount={activity.idealMemberCount}
           />
         </Section>
-
-        {activity.persistent && (
-          <Section
-            className={READING_WIDTH}
-            title="Looking back"
-            description="Who's been joining, and where, across the bookings that have already happened."
-          >
-            <BookingStats activityId={activity.id} pastBookingCount={activity.pastBookingCount} />
-          </Section>
-        )}
 
         <Section
           className={READING_WIDTH}

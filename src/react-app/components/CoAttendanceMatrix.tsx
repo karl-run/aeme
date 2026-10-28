@@ -11,7 +11,7 @@ import type { CountRow } from "./CountBarChart.tsx";
 import { HeatLegend } from "./HeatLegend.tsx";
 
 /** Like the other two chart modules, this one is only ever reached through
- * the lazy import in `BookingStats.tsx` — see the note in
+ * the lazy import in `BookingStatsDialog.tsx` — see the note in
  * `CountBarChart.tsx`. */
 
 /** Two people and how many past bookings they were both on. `a` and `b` are

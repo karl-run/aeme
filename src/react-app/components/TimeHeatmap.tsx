@@ -9,7 +9,7 @@ import { bucketOf, EMPTY, rampFor, stepsFor } from "../lib/heat-ramp.ts";
 import { HeatLegend } from "./HeatLegend.tsx";
 
 /** Like `CountBarChart.tsx`, this module is only ever reached through the
- * lazy import in `BookingStats.tsx` — see the note there. */
+ * lazy import in `BookingStatsDialog.tsx` — see the note there. */
 
 export type TimeCell = {
   /** ISO-8601: 1 = Monday. */
